@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: zyvon-server
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
