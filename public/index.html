@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zyvon Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#080c14;--surface:#0f1623;--card:#131d2e;--border:#1e2d42;--accent:#00d4ff;--accent2:#7c3aed;--green:#10b981;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;--radius:14px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:58px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.ws-status{display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted)}
+.ws-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .4s}
+.ws-status.connected .ws-dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.ws-status.connected{color:var(--green)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#000}.btn-primary:hover{background:#00b8e0;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{color:var(--text);border-color:var(--muted)}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25)}.btn-danger:hover{background:rgba(239,68,68,.3)}
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:240px;min-width:240px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border)}
+.sidebar-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.device-list{flex:1;overflow-y:auto;padding:8px}
+.device-item{padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .2s;border:1px solid transparent;margin-bottom:4px}
+.device-item:hover{background:var(--card)}
+.device-item.active{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2)}
+.device-name{font-size:13px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:7px}
+.device-status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.device-item.online .device-status-dot{background:var(--green);box-shadow:0 0 5px var(--green)}
+.device-token{font-size:10px;color:var(--muted);font-family:monospace}
+.device-lastseen{font-size:10px;color:var(--muted);margin-top:2px}
+.main{flex:1;overflow-y:auto;padding:20px}
+.main-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.device-title{font-size:22px;font-weight:700}
+.device-subtitle{font-size:13px;color:var(--muted);margin-top:2px}
+.widget-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.empty-state{text-align:center;padding:80px 20px;color:var(--muted)}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-title{font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px}
+.widget-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;transition:border-color .2s}
+.widget-card:hover{border-color:rgba(0,212,255,.2)}
+.widget-card.span2{grid-column:span 2}
+.widget-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.widget-pin-badge{font-size:10px;background:rgba(0,212,255,.1);color:var(--accent);padding:2px 7px;border-radius:10px;font-family:monospace}
+.widget-remove{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.15);border:none;color:var(--red);cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center;z-index:10}
+.widget-card:hover .widget-remove{display:flex}
+.widget-value-display{text-align:center;padding:10px 0}
+.widget-value-big{font-size:42px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.widget-value-unit{font-size:14px;color:var(--muted);margin-top:4px}
+.led-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 0;gap:10px}
+.led-bulb{width:52px;height:52px;border-radius:50%;background:var(--muted);transition:all .4s;position:relative}
+.led-bulb.on{box-shadow:0 0 20px currentColor,0 0 40px currentColor}
+.led-bulb::after{content:'';position:absolute;top:20%;left:25%;width:35%;height:35%;background:rgba(255,255,255,.3);border-radius:50%}
+.led-label{font-size:13px;color:var(--muted);font-weight:500}
+.widget-button-wrap{padding:8px 0}
+.iot-button{width:100%;padding:18px;border-radius:12px;border:none;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;user-select:none}
+.iot-button.on{color:#000}.iot-button.off{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
+.widget-slider-wrap{padding:4px 0 8px}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(0,212,255,.5);cursor:pointer}
+.slider-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+.slider-value{text-align:center;font-size:24px;font-weight:700;margin-bottom:8px}
+.gauge-wrap{display:flex;justify-content:center;align-items:center;flex-direction:column;padding:4px 0}
+.gauge-svg{overflow:visible}
+.gauge-track{fill:none;stroke:var(--border);stroke-width:8;stroke-linecap:round}
+.gauge-fill{fill:none;stroke-width:8;stroke-linecap:round;transition:d .6s ease}
+.gauge-text{font-size:16px;font-weight:800;fill:var(--text);font-family:'Segoe UI',sans-serif}
+.gauge-unit{font-size:9px;fill:var(--muted);font-family:'Segoe UI',sans-serif}
+.gauge-min-max{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);width:140px;margin-top:-4px}
+.chart-canvas{width:100%;height:100px;display:block}
+.chart-value{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+/* MAP */
+.map-widget{height:220px;border-radius:10px;overflow:hidden;position:relative}
+.map-no-gps{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:13px;background:var(--bg);pointer-events:none;z-index:5}
+.map-no-gps-icon{font-size:32px;opacity:.4}
+.map-coords{font-size:11px;color:var(--muted);margin-top:6px;text-align:center;font-family:monospace}
+/* Modals */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;padding:16px}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:440px;box-shadow:var(--shadow);transform:translateY(16px);transition:transform .2s;max-height:90vh;overflow-y:auto}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.field input,.field select{width:100%;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--accent)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.token-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:15px;letter-spacing:2px;color:var(--accent);text-align:center;margin:12px 0;user-select:all}
+.token-hint{font-size:12px;color:var(--muted);text-align:center}
+.color-swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.swatch{width:28px;height:28px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.swatch.sel{border-color:white;transform:scale(1.15)}
+.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.type-btn{padding:10px 4px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;text-align:center;font-size:11px;font-weight:600;transition:all .2s}
+.type-btn:hover{border-color:var(--muted);color:var(--text)}
+.type-btn.sel{border-color:var(--accent);background:rgba(0,212,255,.1);color:var(--accent)}
+.type-btn .type-icon{font-size:20px;display:block;margin-bottom:4px}
+.map-pin-hint{font-size:12px;color:var(--muted);margin-top:8px;padding:10px;background:rgba(0,212,255,.05);border-radius:8px;border:1px solid rgba(0,212,255,.1);line-height:1.8}
+.no-device{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:40px}
+.no-device-icon{font-size:56px;margin-bottom:16px;opacity:.3}
+@media(max-width:600px){.sidebar{width:100%;min-width:0;max-height:180px;border-right:none;border-bottom:1px solid var(--border)}.layout{flex-direction:column}.widget-grid{grid-template-columns:1fr 1fr}.widget-card.span2{grid-column:span 2}}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;z-index:300;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:none;opacity:1}.toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}
+.leaflet-pane{z-index:1!important}.leaflet-top,.leaflet-bottom{z-index:2!important}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">Zyvon</div>
+  <div class="topbar-right">
+    <div class="ws-status" id="wsStatus"><span class="ws-dot"></span><span id="wsStatusText">Connecting…</span></div>
+    <button class="btn btn-ghost" onclick="openDeviceModal()">+ Device</button>
+    <button class="btn btn-primary" id="addWidgetBtn" onclick="openWidgetModal()" disabled>+ Widget</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header"><span class="sidebar-title">Devices</span></div>
+    <div class="device-list" id="deviceList"><div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">No devices yet</div></div>
+  </aside>
+  <main class="main">
+    <div id="noDeviceView" class="no-device">
+      <div class="no-device-icon">📡</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Select a Device</div>
+      <div style="font-size:14px">Create a device, flash your ESP, then add widgets</div>
+    </div>
+    <div id="deviceView" style="display:none">
+      <div class="main-header">
+        <div><div class="device-title" id="deviceViewName">–</div><div class="device-subtitle" id="deviceViewInfo">–</div></div>
+        <button class="btn btn-danger" onclick="deleteCurrentDevice()">Delete Device</button>
+      </div>
+      <div class="widget-grid" id="widgetGrid"></div>
+      <div id="emptyWidgets" class="empty-state" style="display:none">
+        <div class="empty-icon">🧩</div>
+        <div class="empty-title">No widgets yet</div>
+        <p>Click <strong>+ Widget</strong> to add controls and displays</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Create Device -->
+<div class="modal-overlay" id="deviceModal">
+  <div class="modal">
+    <h2>Create Device</h2><p class="modal-sub">Generate a token for your ESP32/ESP8266</p>
+    <div class="field"><label>Device Name</label><input id="newDeviceName" placeholder="e.g. Living Room Sensor"/></div>
+    <div id="newTokenWrap" style="display:none">
+      <div class="token-box" id="newToken"></div>
+      <div class="token-hint">📋 Copy this — paste as AUTH_TOKEN in your sketch</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deviceModal')">Close</button>
+      <button class="btn btn-primary" id="createDeviceBtn" onclick="createDevice()">Generate Token</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add Widget -->
+<div class="modal-overlay" id="widgetModal">
+  <div class="modal">
+    <h2>Add Widget</h2><p class="modal-sub">Configure a control or display for a virtual pin</p>
+    <div class="field">
+      <label>Widget Type</label>
+      <div class="type-grid">
+        <div class="type-btn sel" data-type="value"  onclick="selectType(this)"><span class="type-icon">🔢</span>Value</div>
+        <div class="type-btn" data-type="button" onclick="selectType(this)"><span class="type-icon">🔘</span>Button</div>
+        <div class="type-btn" data-type="slider" onclick="selectType(this)"><span class="type-icon">🎚️</span>Slider</div>
+        <div class="type-btn" data-type="gauge"  onclick="selectType(this)"><span class="type-icon">🌡️</span>Gauge</div>
+        <div class="type-btn" data-type="led"    onclick="selectType(this)"><span class="type-icon">💡</span>LED</div>
+        <div class="type-btn" data-type="chart"  onclick="selectType(this)"><span class="type-icon">📈</span>Chart</div>
+        <div class="type-btn" data-type="map"    onclick="selectType(this)"><span class="type-icon">🗺️</span>Map</div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Label</label><input id="wLabel" placeholder="My Widget"/></div>
+      <div class="field" id="wPinField"><label>Virtual Pin</label><input id="wPin" type="number" min="0" max="127" value="0"/></div>
+    </div>
+    <!-- Map only -->
+    <div id="wMapPins" style="display:none">
+      <div class="field-row">
+        <div class="field"><label>Latitude Pin</label><input id="wLatPin" type="number" value="10"/></div>
+        <div class="field"><label>Longitude Pin</label><input id="wLonPin" type="number" value="11"/></div>
+      </div>
+      <div class="map-pin-hint">
+        Send GPS from your ESP:<br>
+        <code>Zyvon.virtualWrite(10, gps.lat(), 6);</code><br>
+        <code>Zyvon.virtualWrite(11, gps.lng(), 6);</code>
+      </div>
+    </div>
+    <div class="field-row" id="wMinMaxRow">
+      <div class="field"><label>Min</label><input id="wMin" type="number" value="0"/></div>
+      <div class="field"><label>Max</label><input id="wMax" type="number" value="100"/></div>
+    </div>
+    <div class="field" id="wUnitRow"><label>Unit (optional)</label><input id="wUnit" placeholder="°C, %, lux…"/></div>
+    <div class="field" id="wColorRow">
+      <label>Color</label>
+      <div class="color-swatches" id="colorSwatches"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('widgetModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addWidget()">Add Widget</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  STATE
+//  BUG FIX: widgets are now keyed by TOKEN, not device UUID.
+//  Render free tier re-generates UUIDs on every restart, which
+//  previously made all widgets "disappear" after a server reboot.
+//  Tokens never change, so this is now stable across restarts.
+// ══════════════════════════════════════════════════════════
+let ws = null;
+let devices = {};          // uuid → device
+let selectedDeviceId = null;
+let widgetLayout = {};     // token → [widgets]
+let chartData    = {};     // widgetId → number[]
+let leafletMaps  = {};     // widgetId → L.Map
+
+const COLORS = ['#00d4ff','#7c3aed','#10b981','#f59e0b','#ef4444','#ec4899','#f97316','#3b82f6'];
+const STORAGE_KEY = 'zyvon_widgets_v2'; // v2 = token-keyed (v1 was uuid-keyed)
+
+function loadWidgets() { try { widgetLayout = JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); } catch { widgetLayout={}; } }
+function saveWidgets() { localStorage.setItem(STORAGE_KEY, JSON.stringify(widgetLayout)); }
+function selectedToken() { return devices[selectedDeviceId]?.token || null; }
+function widgetsFor(token) { return widgetLayout[token] || []; }
+loadWidgets();
+
+// ══════════════════════════════════════════════════════════
+//  WEBSOCKET
+// ══════════════════════════════════════════════════════════
+function connect() {
+  const proto = location.protocol==='https:'?'wss':'ws';
+  ws = new WebSocket(`${proto}://${location.host}/dashboard`);
+  ws.onopen    = () => { setWsStatus(true); Object.values(devices).forEach(d=>wsSend({type:'requestPins',deviceId:d.id})); };
+  ws.onclose   = () => { setWsStatus(false); setTimeout(connect,3000); };
+  ws.onmessage = e => { try{handleMessage(JSON.parse(e.data));}catch{} };
+}
+function wsSend(obj) { if(ws&&ws.readyState===1) ws.send(JSON.stringify(obj)); }
+
+function handleMessage(msg) {
+  switch(msg.type) {
+    case 'devices':
+      devices = {};
+      msg.devices.forEach(d => devices[d.id]=d);
+      renderDeviceList();
+      // Re-find selected device by saved token if UUID changed (server restart)
+      if(selectedDeviceId && !devices[selectedDeviceId]) {
+        const saved = localStorage.getItem('zyvon_sel_token');
+        const found = saved && Object.values(devices).find(d=>d.token===saved);
+        selectedDeviceId = found ? found.id : null;
+      }
+      if(selectedDeviceId) { refreshDeviceView(); document.getElementById('addWidgetBtn').disabled=false; }
+      break;
+    case 'vw': {
+      const d=devices[msg.deviceId]; if(d) d.pins[msg.pin]=msg.value;
+      updateWidgetValue(msg.deviceId, msg.pin, msg.value);
+      break;
+    }
+    case 'pinState':
+      if(devices[msg.deviceId]) {
+        const d=devices[msg.deviceId];
+        d.pins = {...d.pins,...msg.pins};
+        widgetsFor(d.token).forEach(w => {
+          if(w.type==='map') { tryUpdateMap(w,d); }
+          else { const v=msg.pins[w.pin]; if(v!==undefined) updateWidgetDOM(w,v); }
+        });
+      }
+      break;
+  }
+}
+
+function setWsStatus(on) {
+  document.getElementById('wsStatus').className='ws-status'+(on?' connected':'');
+  document.getElementById('wsStatusText').textContent=on?'Live':'Reconnecting…';
+}
+
+// ══════════════════════════════════════════════════════════
+//  DEVICE LIST
+// ══════════════════════════════════════════════════════════
+function renderDeviceList() {
+  const list=document.getElementById('deviceList'), ids=Object.keys(devices);
+  if(!ids.length){list.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">No devices yet.</div>';return;}
+  list.innerHTML=ids.map(id=>{
+    const d=devices[id],active=id===selectedDeviceId?' active':'',online=d.online?' online':'';
+    return`<div class="device-item${active}${online}" onclick="selectDevice('${id}')">
+      <div class="device-name"><span class="device-status-dot"></span>${esc(d.name)}</div>
+      <div class="device-token">${d.token}</div>
+      <div class="device-lastseen">${d.online?'🟢 Online':'⚪ '+timeAgo(d.lastSeen)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectDevice(id) {
+  selectedDeviceId=id;
+  localStorage.setItem('zyvon_sel_token', devices[id]?.token||'');
+  document.getElementById('addWidgetBtn').disabled=false;
+  renderDeviceList(); refreshDeviceView();
+  wsSend({type:'requestPins',deviceId:id});
+}
+
+function refreshDeviceView() {
+  const d=devices[selectedDeviceId];
+  if(!d){document.getElementById('noDeviceView').style.display='';document.getElementById('deviceView').style.display='none';return;}
+  document.getElementById('noDeviceView').style.display='none';
+  document.getElementById('deviceView').style.display='';
+  document.getElementById('deviceViewName').textContent=d.name;
+  document.getElementById('deviceViewInfo').textContent=`Token: ${d.token}  •  ${d.online?'🟢 Online':'⚪ Offline'}`;
+  renderWidgets();
+}
+
+// ══════════════════════════════════════════════════════════
+//  DEVICE MANAGEMENT
+// ══════════════════════════════════════════════════════════
+function openDeviceModal(){document.getElementById('newDeviceName').value='';document.getElementById('newTokenWrap').style.display='none';document.getElementById('createDeviceBtn').style.display='';openModal('deviceModal');}
+
+async function createDevice(){
+  const name=document.getElementById('newDeviceName').value.trim()||'My Device';
+  const r=await fetch('/api/device/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const data=await r.json();
+  document.getElementById('newToken').textContent=data.token;
+  document.getElementById('newTokenWrap').style.display='';
+  document.getElementById('createDeviceBtn').style.display='none';
+  showToast(`Device "${data.name}" created!`,'success');
+}
+
+async function deleteCurrentDevice(){
+  if(!selectedDeviceId)return;
+  const d=devices[selectedDeviceId];
+  if(!confirm(`Delete "${d.name}"? This cannot be undone.`))return;
+  await fetch(`/api/device/${d.token}`,{method:'DELETE'});
+  delete widgetLayout[d.token]; saveWidgets();
+  selectedDeviceId=null; localStorage.removeItem('zyvon_sel_token');
+  document.getElementById('addWidgetBtn').disabled=true;
+  document.getElementById('noDeviceView').style.display=''; document.getElementById('deviceView').style.display='none';
+  showToast('Device deleted','error');
+}
+
+// ══════════════════════════════════════════════════════════
+//  WIDGET MANAGEMENT
+// ══════════════════════════════════════════════════════════
+let selType='value', selColor=COLORS[0];
+
+function selectType(el){
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('sel')); el.classList.add('sel'); selType=el.dataset.type;
+  const isMap=selType==='map', needMM=['slider','gauge','chart'].includes(selType), needUnit=['gauge','value'].includes(selType);
+  document.getElementById('wMapPins').style.display   = isMap?'':'none';
+  document.getElementById('wPinField').style.display  = isMap?'none':'';
+  document.getElementById('wMinMaxRow').style.display = (!isMap&&needMM)?'':'none';
+  document.getElementById('wUnitRow').style.display   = (!isMap&&needUnit)?'':'none';
+  document.getElementById('wColorRow').style.display  = isMap?'none':'';
+}
+
+function openWidgetModal(){
+  if(!selectedDeviceId)return;
+  selType='value'; selColor=COLORS[0];
+  document.querySelectorAll('.type-btn').forEach((b,i)=>b.classList.toggle('sel',i===0));
+  document.getElementById('wLabel').value=''; document.getElementById('wPin').value='0';
+  document.getElementById('wMin').value='0'; document.getElementById('wMax').value='100';
+  document.getElementById('wUnit').value=''; document.getElementById('wLatPin').value='10'; document.getElementById('wLonPin').value='11';
+  document.getElementById('wMapPins').style.display='none'; document.getElementById('wPinField').style.display='';
+  document.getElementById('wMinMaxRow').style.display='none'; document.getElementById('wUnitRow').style.display='';
+  document.getElementById('wColorRow').style.display='';
+  document.getElementById('colorSwatches').innerHTML=COLORS.map(c=>`<div class="swatch${c===selColor?' sel':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`).join('');
+  openModal('widgetModal');
+}
+
+function pickColor(c,el){selColor=c;document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');}
+
+function addWidget(){
+  if(!selectedDeviceId)return;
+  const tok=selectedToken(); if(!tok)return;
+  const isMap=selType==='map';
+  const w={
+    id:Date.now()+Math.random().toString(36).slice(2),
+    type:selType,
+    label:document.getElementById('wLabel').value.trim()||'Widget',
+    pin:isMap?null:(parseInt(document.getElementById('wPin').value)||0),
+    latPin:isMap?(parseInt(document.getElementById('wLatPin').value)||10):null,
+    lonPin:isMap?(parseInt(document.getElementById('wLonPin').value)||11):null,
+    min:parseFloat(document.getElementById('wMin').value)||0,
+    max:parseFloat(document.getElementById('wMax').value)||100,
+    unit:document.getElementById('wUnit').value.trim(),
+    color:isMap?'#00d4ff':selColor,
+  };
+  if(!widgetLayout[tok])widgetLayout[tok]=[];
+  widgetLayout[tok].push(w); saveWidgets();
+  closeModal('widgetModal'); renderWidgets();
+  showToast('Widget added ✓','success');
+}
+
+function removeWidget(wid){
+  const tok=selectedToken(); if(!tok)return;
+  if(leafletMaps[wid]){leafletMaps[wid].remove();delete leafletMaps[wid];}
+  widgetLayout[tok]=(widgetLayout[tok]||[]).filter(w=>w.id!==wid);
+  delete chartData[wid]; saveWidgets(); renderWidgets();
+}
+
+function getWidget(wid){return(widgetsFor(selectedToken())||[]).find(w=>w.id===wid);}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER WIDGETS
+// ══════════════════════════════════════════════════════════
+function renderWidgets(){
+  const grid=document.getElementById('widgetGrid'), empty=document.getElementById('emptyWidgets');
+  const tok=selectedToken(), widgets=widgetsFor(tok);
+  Object.keys(leafletMaps).forEach(wid=>{leafletMaps[wid].remove();delete leafletMaps[wid];});
+  if(!widgets.length){grid.innerHTML='';empty.style.display='';return;}
+  empty.style.display='none';
+  grid.innerHTML=widgets.map(w=>buildWidgetHTML(w)).join('');
+  widgets.forEach(w=>{
+    const d=devices[selectedDeviceId];
+    if(w.type==='map'){initMap(w);tryUpdateMap(w,d);}
+    else{if(w.type==='chart'){if(!chartData[w.id])chartData[w.id]=[];drawChart(w.id,w);}
+         const val=d?.pins[w.pin];if(val!==undefined)updateWidgetDOM(w,val);}
+  });
+}
+
+function buildWidgetHTML(w){
+  const wide=['chart','slider','map'].includes(w.type);
+  const rm=`<button class="widget-remove" onclick="removeWidget('${w.id}')" title="Remove">✕</button>`;
+  const badge=w.type==='map'?`<span class="widget-pin-badge">V${w.latPin}/V${w.lonPin}</span>`:`<span class="widget-pin-badge">V${w.pin}</span>`;
+  const lbl=`<div class="widget-label">${esc(w.label)} ${badge}</div>`;
+  let body='';
+  switch(w.type){
+    case 'value': body=`<div class="widget-value-display"><div class="widget-value-big" id="val_${w.id}" style="color:${w.color}">–</div>${w.unit?`<div class="widget-value-unit">${esc(w.unit)}</div>`:''}</div>`; break;
+    case 'led':   body=`<div class="led-wrap"><div class="led-bulb" id="led_${w.id}"></div><div class="led-label" id="ledlabel_${w.id}">OFF</div></div>`; break;
+    case 'button':body=`<div class="widget-button-wrap"><button class="iot-button off" id="btn_${w.id}" onclick="toggleBtn('${w.id}')">○ OFF</button></div>`; break;
+    case 'slider':body=`<div class="widget-slider-wrap"><div class="slider-value" id="slval_${w.id}" style="color:${w.color}">${w.min}</div><input type="range" id="sl_${w.id}" min="${w.min}" max="${w.max}" value="${w.min}" style="background:linear-gradient(to right,${w.color} 0%,var(--border) 0%)" oninput="onSlider('${w.id}',this,${w.min},${w.max})"><div class="slider-labels"><span>${w.min}</span><span>${w.max}</span></div></div>`; break;
+    case 'gauge': body=`<div class="gauge-wrap"><svg class="gauge-svg" viewBox="0 0 120 80" width="160" height="110"><path class="gauge-track" d="${garc(60,62,44,135,405)}"/><path class="gauge-fill" id="gf_${w.id}" stroke="${w.color}" d="${garc(60,62,44,135,135)}"/><text class="gauge-text" id="gval_${w.id}" x="60" y="64" text-anchor="middle">–</text><text class="gauge-unit" x="60" y="74" text-anchor="middle">${esc(w.unit||'')}</text></svg><div class="gauge-min-max"><span>${w.min}</span><span>${w.max}</span></div></div>`; break;
+    case 'chart': body=`<canvas class="chart-canvas" id="chart_${w.id}"></canvas><div class="chart-value" id="chartval_${w.id}" style="color:${w.color}">–</div>`; break;
+    case 'map':   body=`<div class="map-widget" id="map_${w.id}"><div class="map-no-gps" id="maphint_${w.id}"><span class="map-no-gps-icon">📍</span><span>Waiting for GPS…</span><span style="font-size:11px">V${w.latPin}=lat, V${w.lonPin}=lon</span></div></div><div class="map-coords" id="mapcoords_${w.id}">No position yet</div>`; break;
+  }
+  return`<div class="widget-card${wide?' span2':''}" id="wcard_${w.id}">${rm}${lbl}${body}</div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAP
+// ══════════════════════════════════════════════════════════
+function initMap(w){
+  const el=document.getElementById(`map_${w.id}`);
+  if(!el||leafletMaps[w.id])return;
+  const map=L.map(`map_${w.id}`,{zoomControl:true,scrollWheelZoom:false}).setView([25,55],4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  const icon=L.divIcon({html:`<div style="width:14px;height:14px;border-radius:50%;background:${w.color};border:2px solid #fff;box-shadow:0 0 8px ${w.color}44"></div>`,iconSize:[14,14],iconAnchor:[7,7],className:''});
+  map._marker=L.marker([25,55],{icon}).addTo(map);
+  leafletMaps[w.id]=map;
+}
+
+function tryUpdateMap(w,d){
+  if(!d)return;
+  const lat=d.pins[w.latPin], lon=d.pins[w.lonPin];
+  if(lat===undefined||lon===undefined)return;
+  const lf=parseFloat(lat), lo=parseFloat(lon);
+  if(isNaN(lf)||isNaN(lo))return;
+  const hint=document.getElementById(`maphint_${w.id}`);
+  if(hint)hint.style.display='none';
+  const coords=document.getElementById(`mapcoords_${w.id}`);
+  if(coords)coords.textContent=`${lf.toFixed(6)}, ${lo.toFixed(6)}`;
+  const map=leafletMaps[w.id]; if(!map)return;
+  map.setView([lf,lo],15);
+  if(map._marker){map._marker.setLatLng([lf,lo]);map._marker.bindPopup(`📍 ${lf.toFixed(5)}, ${lo.toFixed(5)}`).openPopup();}
+  setTimeout(()=>map.invalidateSize(),120);
+}
+
+// ══════════════════════════════════════════════════════════
+//  PIN VALUE UPDATES
+// ══════════════════════════════════════════════════════════
+function updateWidgetValue(deviceId,pin,value){
+  const tok=devices[deviceId]?.token; if(!tok)return;
+  widgetsFor(tok).forEach(w=>{
+    if(w.type==='map'){
+      if(w.latPin==pin||w.lonPin==pin) tryUpdateMap(w,devices[deviceId]);
+    } else if(w.pin==pin){updateWidgetDOM(w,value);}
+  });
+}
+
+function updateWidgetDOM(w,value){
+  const v=parseFloat(value);
+  switch(w.type){
+    case 'value':{const el=document.getElementById(`val_${w.id}`);if(el)el.textContent=isNaN(v)?value:(Number.isInteger(v)?v:v.toFixed(2));break;}
+    case 'led':{
+      const b=document.getElementById(`led_${w.id}`),l=document.getElementById(`ledlabel_${w.id}`);
+      const on=v!==0&&value!=='0'&&value!=='';
+      if(b){b.classList.toggle('on',on);b.style.background=on?w.color:'var(--muted)';b.style.color=on?w.color:'var(--muted)';b.style.boxShadow=on?`0 0 18px ${w.color}`:'';}
+      if(l)l.textContent=on?'ON':'OFF';break;
+    }
+    case 'button':{
+      const b=document.getElementById(`btn_${w.id}`);if(!b)break;
+      const on=v!==0;b.className='iot-button '+(on?'on':'off');
+      b.style.background=on?w.color:'';b.style.boxShadow=on?`0 4px 20px ${w.color}66`:'';b.textContent=on?'● ON':'○ OFF';break;
+    }
+    case 'slider':{
+      const sl=document.getElementById(`sl_${w.id}`),txt=document.getElementById(`slval_${w.id}`);
+      if(sl)sl.value=v;if(txt)txt.textContent=isNaN(v)?value:v;if(sl)slBg(sl,w.min,w.max,w.color);break;
+    }
+    case 'gauge':{
+      if(isNaN(v))break;
+      const pct=Math.max(0,Math.min(1,(v-w.min)/(w.max-w.min)));
+      const p=document.getElementById(`gf_${w.id}`),t=document.getElementById(`gval_${w.id}`);
+      if(p)p.setAttribute('d',garc(60,62,44,135,135+pct*270));
+      if(t)t.textContent=isNaN(v)?value:(Number.isInteger(v)?v:v.toFixed(1));break;
+    }
+    case 'chart':{
+      if(!chartData[w.id])chartData[w.id]=[];
+      chartData[w.id].push(isNaN(v)?0:v);if(chartData[w.id].length>60)chartData[w.id].shift();
+      const l=document.getElementById(`chartval_${w.id}`);if(l)l.textContent=`Latest: ${isNaN(v)?value:v}`;
+      drawChart(w.id,w);break;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  GAUGE MATH
+// ══════════════════════════════════════════════════════════
+function pxy(cx,cy,r,deg){const a=(deg-90)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+function garc(cx,cy,r,s,e){const[x1,y1]=pxy(cx,cy,r,s),[x2,y2]=pxy(cx,cy,r,e);return`M ${x1} ${y1} A ${r} ${r} 0 ${e-s>180?1:0} 1 ${x2} ${y2}`;}
+
+// ══════════════════════════════════════════════════════════
+//  CHART
+// ══════════════════════════════════════════════════════════
+function drawChart(wid,w){
+  const c=document.getElementById(`chart_${wid}`);if(!c)return;
+  const ctx=c.getContext('2d');c.width=c.offsetWidth||300;c.height=c.offsetHeight||100;
+  const data=chartData[wid]||[];ctx.clearRect(0,0,c.width,c.height);
+  if(data.length<2){ctx.fillStyle='rgba(100,116,139,.4)';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('Waiting for data…',c.width/2,c.height/2);return;}
+  const mn=Math.min(...data,w.min),mx=Math.max(...data,w.max),rng=mx-mn||1,W=c.width,H=c.height,p=6;
+  const x=i=>p+(i/(data.length-1))*(W-2*p),y=v=>H-p-((v-mn)/rng)*(H-2*p);
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,w.color+'44');g.addColorStop(1,w.color+'00');
+  ctx.beginPath();ctx.moveTo(x(0),H);data.forEach((v,i)=>ctx.lineTo(x(i),y(v)));ctx.lineTo(x(data.length-1),H);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();data.forEach((v,i)=>i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v)));ctx.strokeStyle=w.color;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+  const li=data.length-1;ctx.beginPath();ctx.arc(x(li),y(data[li]),4,0,Math.PI*2);ctx.fillStyle=w.color;ctx.fill();
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════════════════════════
+function toggleBtn(wid){
+  const w=getWidget(wid);if(!w)return;
+  const cur=devices[selectedDeviceId]?.pins[w.pin]||'0';
+  wsSend({type:'vw',deviceId:selectedDeviceId,pin:w.pin,value:parseFloat(cur)!==0?'0':'1'});
+}
+function onSlider(wid,el,min,max){
+  const v=parseFloat(el.value),w=getWidget(wid);
+  document.getElementById(`slval_${wid}`).textContent=v;
+  slBg(el,min,max,w?.color||'var(--accent)');
+  wsSend({type:'vw',deviceId:selectedDeviceId,pin:w?.pin,value:String(v)});
+}
+function slBg(el,min,max,color){const p=((parseFloat(el.value)-min)/(max-min))*100;el.style.background=`linear-gradient(to right,${color} ${p}%,var(--border) ${p}%)`;}
+
+// ══════════════════════════════════════════════════════════
+//  MODAL / TOAST / UTILS
+// ══════════════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+let toastT;
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3000);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function timeAgo(iso){if(!iso)return'never';const s=Math.floor((Date.now()-new Date(iso))/1000);return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:`${Math.floor(s/3600)}h ago`;}
+window.addEventListener('resize',()=>{
+  const tok=selectedToken();
+  widgetsFor(tok).forEach(w=>{
+    if(w.type==='chart')drawChart(w.id,w);
+    if(w.type==='map'&&leafletMaps[w.id])leafletMaps[w.id].invalidateSize();
+  });
+});
+
+connect();
+</script>
+</body>
+</html>
