@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zyvon</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root{
+  --bg:#0a0e1a;--surface:#111827;--card:#1a2235;--card2:#1e2840;
+  --border:#232f45;--border2:#2a3a55;
+  --accent:#00c6ff;--accent2:#7b2ff7;--accentg:linear-gradient(135deg,#00c6ff,#7b2ff7);
+  --green:#00e676;--red:#ff4757;--yellow:#ffa502;--orange:#ff6b35;
+  --text:#f0f4ff;--text2:#8b9dc3;--text3:#4a5a7a;
+  --radius:16px;--radius-sm:10px;
+  --shadow:0 8px 32px rgba(0,0,0,.4);--shadow-sm:0 2px 12px rgba(0,0,0,.3);
+  --glow-accent:0 0 20px rgba(0,198,255,.2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Login Screen ─────────────────────────────────────── */
+#loginScreen{
+  position:fixed;inset:0;background:var(--bg);z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  background-image:radial-gradient(ellipse at 20% 50%,rgba(0,198,255,.06) 0%,transparent 60%),
+                   radial-gradient(ellipse at 80% 20%,rgba(123,47,247,.06) 0%,transparent 60%);
+}
+.login-box{
+  width:100%;max-width:380px;padding:40px 36px;
+  background:var(--surface);border:1px solid var(--border);border-radius:24px;
+  box-shadow:var(--shadow),0 0 60px rgba(0,198,255,.06);
+  animation:fadeUp .4s ease;
+}
+.login-logo{
+  font-size:28px;font-weight:800;text-align:center;margin-bottom:6px;
+  background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.login-sub{text-align:center;font-size:13px;color:var(--text2);margin-bottom:32px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px}
+.login-field input{
+  width:100%;padding:13px 16px;background:var(--card);border:1px solid var(--border2);
+  border-radius:var(--radius-sm);color:var(--text);font-size:15px;font-family:inherit;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.login-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,198,255,.1)}
+.login-btn{
+  width:100%;padding:14px;border:none;border-radius:var(--radius-sm);cursor:pointer;
+  background:var(--accentg);color:#fff;font-size:15px;font-weight:700;font-family:inherit;
+  margin-top:8px;transition:opacity .2s,transform .15s;letter-spacing:.3px;
+}
+.login-btn:hover{opacity:.9;transform:translateY(-1px)}
+.login-btn:active{transform:translateY(0)}
+.login-err{font-size:13px;color:var(--red);text-align:center;margin-top:12px;min-height:18px}
+
+/* ── App Shell ─────────────────────────────────────────── */
+#appShell{display:flex;flex-direction:column;height:100%;opacity:0;transition:opacity .3s}
+#appShell.visible{opacity:1}
+
+/* ── Topbar ───────────────────────────────────────────── */
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:0 24px;height:60px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;flex-shrink:0;
+}
+.logo{
+  font-size:21px;font-weight:800;
+  background:var(--accentg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.ws-pill{
+  display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;
+  padding:5px 12px;border-radius:20px;border:1px solid var(--border2);color:var(--text2);
+  transition:all .3s;
+}
+.ws-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:all .4s;flex-shrink:0}
+.ws-pill.live .ws-dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+.ws-pill.live{color:var(--green);border-color:rgba(0,230,118,.25)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all .2s;white-space:nowrap}
+.btn-grad{background:var(--accentg);color:#fff;box-shadow:0 4px 16px rgba(0,198,255,.25)}
+.btn-grad:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,198,255,.35)}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.btn-outline:hover{color:var(--text);border-color:var(--accent);background:rgba(0,198,255,.05)}
+.btn-danger{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25)}
+.btn-danger:hover{background:rgba(255,71,87,.22)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.logout-btn{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:6px 10px;border-radius:8px;transition:color .2s}
+.logout-btn:hover{color:var(--red)}
+
+/* ── Layout ───────────────────────────────────────────── */
+.layout{display:flex;flex:1;min-height:0;overflow:hidden}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sidebar{
+  width:260px;min-width:260px;background:var(--surface);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-header{
+  padding:16px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sidebar-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3)}
+.device-list{flex:1;overflow-y:auto;padding:10px}
+.device-empty{padding:32px 16px;text-align:center;color:var(--text3);font-size:13px;line-height:1.7}
+
+.device-item{
+  padding:12px 14px;border-radius:12px;cursor:pointer;
+  border:1px solid transparent;margin-bottom:5px;transition:all .18s;
+  background:transparent;
+}
+.device-item:hover{background:var(--card);border-color:var(--border)}
+.device-item.active{background:linear-gradient(135deg,rgba(0,198,255,.1),rgba(123,47,247,.08));border-color:rgba(0,198,255,.3)}
+.device-row1{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.dev-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:all .3s}
+.device-item.online .dev-dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dev-name{font-size:13px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dev-token{font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:2px;padding-left:16px}
+.dev-status{font-size:11px;color:var(--text3);padding-left:16px}
+.device-item.online .dev-status{color:var(--green)}
+
+/* ── Main ─────────────────────────────────────────────── */
+.main{flex:1;overflow-y:auto;padding:24px;background:var(--bg)}
+.main-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.main-header-left .dev-title{font-size:24px;font-weight:700;letter-spacing:-.3px}
+.main-header-left .dev-meta{font-size:13px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:8px}
+.online-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.online-badge.on{background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.online-badge.off{background:rgba(139,157,195,.08);color:var(--text3);border:1px solid var(--border)}
+.online-badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ── Widget Grid ──────────────────────────────────────── */
+.widget-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;align-items:start}
+
+/* ── No-device / empty ────────────────────────────────── */
+.no-device-view{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;gap:16px;color:var(--text3)}
+.no-device-icon{font-size:64px;opacity:.25}
+.no-device-view h2{font-size:20px;font-weight:700;color:var(--text2)}
+.no-device-view p{font-size:14px;max-width:280px;line-height:1.6}
+.empty-widgets{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;text-align:center;color:var(--text3);gap:12px}
+.empty-widgets-icon{font-size:48px;opacity:.2}
+.empty-widgets h3{font-size:17px;font-weight:600;color:var(--text2)}
+.empty-widgets p{font-size:13px;line-height:1.6}
+
+/* ── Widget Card base ─────────────────────────────────── */
+.wcard{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;position:relative;overflow:hidden;transition:border-color .2s,box-shadow .2s;
+}
+.wcard:hover{border-color:var(--border2);box-shadow:var(--shadow-sm)}
+.wcard.span2{grid-column:span 2}
+.wcard-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.wcard-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
+.wpin{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(0,198,255,.1);color:var(--accent);font-family:monospace}
+.wcard-remove{
+  position:absolute;top:10px;right:10px;width:24px;height:24px;border-radius:50%;
+  background:rgba(255,71,87,.15);border:none;color:var(--red);cursor:pointer;
+  font-size:13px;display:none;align-items:center;justify-content:center;z-index:5;
+  transition:background .2s;
+}
+.wcard-remove:hover{background:rgba(255,71,87,.3)}
+.wcard:hover .wcard-remove{display:flex}
+
+/* ── Value widget ─────────────────────────────────────── */
+.w-value{display:flex;flex-direction:column;align-items:center;padding:10px 0 4px}
+.w-value-num{font-size:44px;font-weight:800;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.w-value-unit{font-size:13px;color:var(--text2);margin-top:6px;font-weight:500}
+
+/* ── LED widget ───────────────────────────────────────── */
+.w-led{display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 0 6px}
+.led-bulb{
+  width:56px;height:56px;border-radius:50%;background:var(--border);
+  transition:all .4s cubic-bezier(.4,0,.2,1);position:relative;
+}
+.led-bulb.on{box-shadow:0 0 24px currentColor,0 0 48px currentColor,0 0 80px rgba(0,0,0,0)}
+.led-bulb::after{content:'';position:absolute;top:18%;left:22%;width:38%;height:38%;background:rgba(255,255,255,.35);border-radius:50%;filter:blur(2px)}
+.led-state{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
+
+/* ── Button widget ────────────────────────────────────── */
+.w-btn-wrap{padding:6px 0}
+.iot-btn{
+  width:100%;padding:20px 12px;border-radius:12px;border:none;
+  font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;
+  letter-spacing:.3px;user-select:none;font-family:inherit;
+}
+.iot-btn.off{background:var(--card2);color:var(--text2);border:1px solid var(--border2)}
+.iot-btn.on{color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+
+/* ── Slider widget ────────────────────────────────────── */
+.w-slider{padding:4px 0 6px}
+.slider-val{font-size:28px;font-weight:800;text-align:center;margin-bottom:10px;letter-spacing:-.5px}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .15s}
+input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2)}
+.slider-range{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:8px}
+
+/* ── Gauge widget ─────────────────────────────────────── */
+.w-gauge{display:flex;flex-direction:column;align-items:center;padding:4px 0}
+.gauge-svg{overflow:visible}
+.g-track{fill:none;stroke:var(--border2);stroke-width:9;stroke-linecap:round}
+.g-fill{fill:none;stroke-width:9;stroke-linecap:round;transition:d .5s ease}
+.g-val{font-size:17px;font-weight:800;fill:var(--text);font-family:'Inter',sans-serif}
+.g-unit{font-size:10px;fill:var(--text2);font-family:'Inter',sans-serif}
+.gauge-minmax{display:flex;justify-content:space-between;width:146px;font-size:11px;color:var(--text3);margin-top:-2px}
+
+/* ── Chart widget ─────────────────────────────────────── */
+.chart-cv{width:100%;height:110px;display:block}
+.chart-footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.chart-latest{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.chart-lbl{font-size:11px;color:var(--text3)}
+
+/* ── Map widget ───────────────────────────────────────── */
+.map-wrap{height:220px;border-radius:10px;overflow:hidden;position:relative;border:1px solid var(--border)}
+.map-no-gps{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--card2);color:var(--text3);font-size:13px;z-index:5;pointer-events:none}
+.map-no-gps-icon{font-size:30px;opacity:.4}
+.map-coords{font-size:11px;color:var(--text3);margin-top:8px;text-align:center;font-family:monospace;letter-spacing:.3px}
+
+/* ── Modals ───────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--surface);border:1px solid var(--border2);border-radius:20px;
+  padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow),0 0 60px rgba(0,0,0,.5);
+  transform:translateY(20px) scale(.97);transition:transform .25s,opacity .25s;
+  max-height:90vh;overflow-y:auto;opacity:0;
+}
+.overlay.open .modal{transform:none;opacity:1}
+.modal-title{font-size:19px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px}
+.field input,.field select{
+  width:100%;padding:10px 14px;background:var(--card2);border:1px solid var(--border2);
+  border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;
+}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+
+/* Token display */
+.token-display{
+  background:var(--card2);border:1px solid var(--border2);border-radius:var(--radius-sm);
+  padding:14px 18px;font-family:monospace;font-size:16px;letter-spacing:2px;
+  color:var(--accent);text-align:center;margin:16px 0;user-select:all;
+  box-shadow:inset 0 0 20px rgba(0,198,255,.05);
+}
+.token-hint{font-size:12px;color:var(--text2);text-align:center;line-height:1.6}
+
+/* Type grid */
+.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+.type-btn{
+  padding:12px 4px 10px;border-radius:10px;border:1px solid var(--border);
+  background:var(--card2);color:var(--text2);cursor:pointer;text-align:center;
+  font-size:11px;font-weight:600;transition:all .18s;font-family:inherit;
+}
+.type-btn:hover{border-color:var(--accent);color:var(--text);background:rgba(0,198,255,.05)}
+.type-btn.sel{border-color:var(--accent);background:rgba(0,198,255,.1);color:var(--accent)}
+.type-icon{font-size:22px;display:block;margin-bottom:5px}
+.map-pin-info{font-size:12px;color:var(--text2);margin-top:10px;padding:12px;background:rgba(0,198,255,.05);border:1px solid rgba(0,198,255,.1);border-radius:var(--radius-sm);line-height:1.9}
+.map-pin-info code{color:var(--accent);font-size:11px}
+
+/* Swatches */
+.swatches{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+.swatch{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.swatch.sel{border-color:#fff;transform:scale(1.18);box-shadow:0 0 8px currentColor}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  padding:12px 20px;border-radius:12px;font-size:13px;font-weight:500;
+  background:var(--surface);border:1px solid var(--border2);
+  box-shadow:var(--shadow);z-index:999;
+  transform:translateY(80px);opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);
+}
+.toast.show{transform:none;opacity:1}
+.toast.ok{border-color:rgba(0,230,118,.4);color:var(--green)}
+.toast.err{border-color:rgba(255,71,87,.4);color:var(--red)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* Animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.wcard{animation:fadeUp .25s ease both}
+
+/* Leaflet fix */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-pane,.leaflet-overlay-pane{z-index:1!important}
+.leaflet-top,.leaflet-bottom{z-index:2!important}
+
+/* Responsive */
+@media(max-width:700px){
+  .sidebar{width:100%;min-width:0;max-height:200px;border-right:none;border-bottom:1px solid var(--border)}
+  .layout{flex-direction:column}
+  .widget-grid{grid-template-columns:1fr 1fr}
+  .wcard.span2{grid-column:span 2}
+  .type-grid{grid-template-columns:repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Zyvon</div>
+    <div class="login-sub">IoT Dashboard — Sign in to continue</div>
+    <div class="login-field">
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="Enter your password" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ══════════════ APP SHELL ══════════════ -->
+<div id="appShell">
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="logo">Zyvon</div>
+    <div class="topbar-right">
+      <div class="ws-pill" id="wsPill"><span class="ws-dot"></span><span id="wsText">Connecting…</span></div>
+      <button class="btn btn-outline btn-sm" onclick="openDeviceModal()">+ Device</button>
+      <button class="btn btn-grad btn-sm" id="addWidgetBtn" onclick="openWidgetModal()" disabled>+ Widget</button>
+      <button class="logout-btn" onclick="logout()" title="Logout">⎋ Logout</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">My Devices</span>
+      </div>
+      <div class="device-list" id="deviceList">
+        <div class="device-empty">No devices yet.<br>Click <strong>+ Device</strong> to create one.</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div id="noDevView" class="no-device-view">
+        <div class="no-device-icon">📡</div>
+        <h2>Select a Device</h2>
+        <p>Choose a device from the sidebar, or create a new one to get started.</p>
+      </div>
+      <div id="devView" style="display:none">
+        <div class="main-header">
+          <div class="main-header-left">
+            <div class="dev-title" id="devTitle">–</div>
+            <div class="dev-meta">
+              <span class="online-badge off" id="devBadge"><span class="online-badge-dot"></span><span id="devBadgeText">Offline</span></span>
+              <span style="color:var(--text3);font-size:12px" id="devTokenLabel">–</span>
+            </div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteCurrentDevice()">Delete</button>
+        </div>
+        <div class="widget-grid" id="widgetGrid"></div>
+        <div id="emptyWidgets" class="empty-widgets" style="display:none">
+          <div class="empty-widgets-icon">🧩</div>
+          <h3>No widgets yet</h3>
+          <p>Click <strong>+ Widget</strong> to add buttons, gauges, charts, maps and more.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══ Modal: Create Device ══ -->
+<div class="overlay" id="deviceModal">
+  <div class="modal">
+    <div class="modal-title">New Device</div>
+    <div class="modal-sub">Generate an auth token for your ESP</div>
+    <div class="field"><label>Device Name</label><input id="newDevName" placeholder="e.g. Garden Sensor"/></div>
+    <div id="tokenResult" style="display:none">
+      <div class="token-display" id="tokenDisplay"></div>
+      <div class="token-hint">📋 Tap to select · Copy into your sketch as <code style="color:var(--accent)">AUTH_TOKEN</code></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('deviceModal')">Close</button>
+      <button class="btn btn-grad" id="genTokenBtn" onclick="createDevice()">Generate Token</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal: Add Widget ══ -->
+<div class="overlay" id="widgetModal">
+  <div class="modal">
+    <div class="modal-title">Add Widget</div>
+    <div class="modal-sub">Choose a type and assign a virtual pin</div>
+    <div class="field">
+      <label>Widget Type</label>
+      <div class="type-grid">
+        <button class="type-btn sel" data-type="value"  onclick="pickType(this)"><span class="type-icon">🔢</span>Value</button>
+        <button class="type-btn" data-type="button" onclick="pickType(this)"><span class="type-icon">🔘</span>Button</button>
+        <button class="type-btn" data-type="slider" onclick="pickType(this)"><span class="type-icon">🎚️</span>Slider</button>
+        <button class="type-btn" data-type="gauge"  onclick="pickType(this)"><span class="type-icon">🌡️</span>Gauge</button>
+        <button class="type-btn" data-type="led"    onclick="pickType(this)"><span class="type-icon">💡</span>LED</button>
+        <button class="type-btn" data-type="chart"  onclick="pickType(this)"><span class="type-icon">📈</span>Chart</button>
+        <button class="type-btn" data-type="map"    onclick="pickType(this)"><span class="type-icon">🗺️</span>Map</button>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Label</label><input id="wLabel" placeholder="My Widget"/></div>
+      <div class="field" id="wPinWrap"><label>Virtual Pin (V#)</label><input id="wPin" type="number" min="0" max="127" value="0"/></div>
+    </div>
+    <div id="wMapPins" style="display:none">
+      <div class="field-row">
+        <div class="field"><label>Latitude Pin</label><input id="wLatPin" type="number" value="10"/></div>
+        <div class="field"><label>Longitude Pin</label><input id="wLonPin" type="number" value="11"/></div>
+      </div>
+      <div class="map-pin-info">Send GPS coords from ESP:<br><code>Zyvon.virtualWrite(10, gps.lat(), 6);</code><br><code>Zyvon.virtualWrite(11, gps.lng(), 6);</code></div>
+    </div>
+    <div class="field-row" id="wMMRow">
+      <div class="field"><label>Min</label><input id="wMin" type="number" value="0"/></div>
+      <div class="field"><label>Max</label><input id="wMax" type="number" value="100"/></div>
+    </div>
+    <div class="field" id="wUnitRow"><label>Unit (optional)</label><input id="wUnit" placeholder="°C  %  lux  m/s …"/></div>
+    <div class="field" id="wColorRow">
+      <label>Accent Color</label>
+      <div class="swatches" id="swatchRow"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('widgetModal')">Cancel</button>
+      <button class="btn btn-grad" onclick="addWidget()">Add Widget</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ════════════════════════════════════════════════════════
+const STORAGE_KEY = 'zyvon_widgets_v2';   // keyed by token — survives server restarts
+const COLORS = ['#00c6ff','#7b2ff7','#00e676','#ffa502','#ff4757','#ff6b9d','#ff6b35','#3d9bff'];
+
+let ws = null, sessionToken = null;
+let devices = {}, selectedId = null;
+let widgetLayout = {}, chartData = {}, leafletMaps = {};
+let selType = 'value', selColor = COLORS[0];
+
+function loadWidgets(){ try{ widgetLayout=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); }catch{ widgetLayout={}; } }
+function saveWidgets(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(widgetLayout)); }
+function selToken(){ return devices[selectedId]?.token||null; }
+function widgetsFor(tok){ return widgetLayout[tok]||[]; }
+loadWidgets();
+
+// ════════════════════════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════════════════════════
+function authHeader(){ return { 'Content-Type':'application/json', 'Authorization':'Bearer '+sessionToken }; }
+
+async function doLogin(){
+  const pass = document.getElementById('loginPass').value.trim();
+  const err  = document.getElementById('loginErr');
+  if(!pass){ err.textContent='Please enter your password.'; return; }
+  err.textContent='';
+  try{
+    const r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass})});
+    const d = await r.json();
+    if(!r.ok){ err.textContent = d.error||'Wrong password.'; return; }
+    sessionToken = d.token;
+    localStorage.setItem('zyvon_session', sessionToken);
+    showApp();
+  }catch(e){ err.textContent='Connection error. Try again.'; }
+}
+
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  const app = document.getElementById('appShell');
+  app.classList.add('visible');
+  connect();
+}
+
+function logout(){
+  sessionToken=null; localStorage.removeItem('zyvon_session');
+  if(ws){ ws.close(); ws=null; }
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('appShell').classList.remove('visible');
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginErr').textContent='';
+}
+
+// Auto-login if session token saved
+window.addEventListener('load',()=>{
+  document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+  const saved = localStorage.getItem('zyvon_session');
+  if(saved){ sessionToken=saved; showApp(); }
+});
+
+// ════════════════════════════════════════════════════════
+//  WEBSOCKET
+// ════════════════════════════════════════════════════════
+function connect(){
+  const proto = location.protocol==='https:'?'wss':'ws';
+  ws = new WebSocket(`${proto}://${location.host}/dashboard`);
+  ws.onopen  = ()=>{ wsSend({type:'dashAuth',token:sessionToken}); };
+  ws.onclose = ()=>{ setLive(false); setTimeout(connect,3000); };
+  ws.onmessage = e=>{ try{handle(JSON.parse(e.data));}catch{} };
+  ws.onerror = ()=>{};
+}
+function wsSend(o){ if(ws&&ws.readyState===1) ws.send(JSON.stringify(o)); }
+
+function handle(msg){
+  switch(msg.type){
+    case 'authOk': setLive(true); break;
+    case 'devices':
+      devices={};
+      msg.devices.forEach(d=>devices[d.id]=d);
+      renderDevList();
+      if(selectedId&&!devices[selectedId]){
+        const saved=localStorage.getItem('zyvon_sel_tok');
+        const found=saved&&Object.values(devices).find(d=>d.token===saved);
+        selectedId=found?found.id:null;
+      }
+      if(selectedId){ document.getElementById('addWidgetBtn').disabled=false; refreshDevView(); }
+      break;
+    case 'vw':{
+      const d=devices[msg.deviceId]; if(d) d.pins[msg.pin]=msg.value;
+      updateByPin(msg.deviceId,msg.pin,msg.value); break;
+    }
+    case 'pinState':
+      if(devices[msg.deviceId]){
+        const d=devices[msg.deviceId];
+        d.pins={...d.pins,...msg.pins};
+        widgetsFor(d.token).forEach(w=>{
+          if(w.type==='map') tryMap(w,d);
+          else{ const v=msg.pins[w.pin]; if(v!==undefined) applyValue(w,v); }
+        });
+      }
+      break;
+  }
+}
+
+function setLive(on){
+  document.getElementById('wsPill').className='ws-pill'+(on?' live':'');
+  document.getElementById('wsText').textContent=on?'Live':'Reconnecting…';
+}
+
+// ════════════════════════════════════════════════════════
+//  DEVICE LIST
+// ════════════════════════════════════════════════════════
+function renderDevList(){
+  const el=document.getElementById('deviceList'), ids=Object.keys(devices);
+  if(!ids.length){ el.innerHTML='<div class="device-empty">No devices yet.<br>Click <strong>+ Device</strong>.</div>'; return; }
+  el.innerHTML=ids.map(id=>{
+    const d=devices[id];
+    return`<div class="device-item${id===selectedId?' active':''}${d.online?' online':''}" onclick="selectDev('${id}')">
+      <div class="device-row1"><span class="dev-dot"></span><span class="dev-name">${esc(d.name)}</span></div>
+      <div class="dev-token">${d.token}</div>
+      <div class="dev-status">${d.online?'● Online':'○ '+(d.lastSeen?timeAgo(d.lastSeen):'Never seen')}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectDev(id){
+  selectedId=id;
+  localStorage.setItem('zyvon_sel_tok', devices[id]?.token||'');
+  document.getElementById('addWidgetBtn').disabled=false;
+  renderDevList(); refreshDevView();
+  wsSend({type:'requestPins',deviceId:id});
+}
+
+function refreshDevView(){
+  const d=devices[selectedId];
+  if(!d){ document.getElementById('noDevView').style.display=''; document.getElementById('devView').style.display='none'; return; }
+  document.getElementById('noDevView').style.display='none';
+  document.getElementById('devView').style.display='';
+  document.getElementById('devTitle').textContent=d.name;
+  document.getElementById('devTokenLabel').textContent='Token: '+d.token;
+  const badge=document.getElementById('devBadge'), badgeTxt=document.getElementById('devBadgeText');
+  badge.className='online-badge '+(d.online?'on':'off');
+  badgeTxt.textContent=d.online?'Online':'Offline';
+  renderWidgets();
+}
+
+// ════════════════════════════════════════════════════════
+//  DEVICE MANAGEMENT
+// ════════════════════════════════════════════════════════
+function openDeviceModal(){ document.getElementById('newDevName').value=''; document.getElementById('tokenResult').style.display='none'; document.getElementById('genTokenBtn').style.display=''; openModal('deviceModal'); }
+
+async function createDevice(){
+  const name=document.getElementById('newDevName').value.trim()||'My Device';
+  const r=await fetch('/api/device/create',{method:'POST',headers:authHeader(),body:JSON.stringify({name})});
+  if(r.status===401){ logout(); return; }
+  const data=await r.json();
+  document.getElementById('tokenDisplay').textContent=data.token;
+  document.getElementById('tokenResult').style.display='';
+  document.getElementById('genTokenBtn').style.display='none';
+  toast(`Device "${data.name}" created!`,'ok');
+}
+
+async function deleteCurrentDevice(){
+  if(!selectedId)return;
+  const d=devices[selectedId];
+  if(!confirm(`Delete "${d.name}"? This cannot be undone.`))return;
+  await fetch(`/api/device/${d.token}`,{method:'DELETE',headers:authHeader()});
+  delete widgetLayout[d.token]; saveWidgets();
+  selectedId=null; localStorage.removeItem('zyvon_sel_tok');
+  document.getElementById('addWidgetBtn').disabled=true;
+  document.getElementById('noDevView').style.display='';
+  document.getElementById('devView').style.display='none';
+  toast('Device deleted','err');
+}
+
+// ════════════════════════════════════════════════════════
+//  WIDGET MANAGEMENT
+// ════════════════════════════════════════════════════════
+function pickType(el){
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('sel')); el.classList.add('sel'); selType=el.dataset.type;
+  const isMap=selType==='map', needMM=['slider','gauge','chart'].includes(selType), needUnit=['gauge','value'].includes(selType);
+  show('wMapPins',isMap); show('wPinWrap',!isMap); show('wMMRow',!isMap&&needMM); show('wUnitRow',!isMap&&needUnit); show('wColorRow',!isMap);
+}
+
+function openWidgetModal(){
+  if(!selectedId)return;
+  selType='value'; selColor=COLORS[0];
+  document.querySelectorAll('.type-btn').forEach((b,i)=>b.classList.toggle('sel',i===0));
+  ['wLabel','wPin','wUnit'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=id==='wPin'?'0':''; });
+  document.getElementById('wMin').value='0'; document.getElementById('wMax').value='100';
+  document.getElementById('wLatPin').value='10'; document.getElementById('wLonPin').value='11';
+  show('wMapPins',false); show('wPinWrap',true); show('wMMRow',false); show('wUnitRow',true); show('wColorRow',true);
+  document.getElementById('swatchRow').innerHTML=COLORS.map(c=>`<div class="swatch${c===selColor?' sel':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`).join('');
+  openModal('widgetModal');
+}
+
+function pickColor(c,el){ selColor=c; document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('sel')); el.classList.add('sel'); }
+
+function addWidget(){
+  const tok=selToken(); if(!tok)return;
+  const isMap=selType==='map';
+  const w={
+    id:Date.now()+Math.random().toString(36).slice(2), type:selType,
+    label:document.getElementById('wLabel').value.trim()||'Widget',
+    pin:isMap?null:+(document.getElementById('wPin').value||0),
+    latPin:isMap?+(document.getElementById('wLatPin').value||10):null,
+    lonPin:isMap?+(document.getElementById('wLonPin').value||11):null,
+    min:+(document.getElementById('wMin').value||0), max:+(document.getElementById('wMax').value||100),
+    unit:document.getElementById('wUnit').value.trim(),
+    color:isMap?'#00c6ff':selColor,
+  };
+  if(!widgetLayout[tok]) widgetLayout[tok]=[];
+  widgetLayout[tok].push(w); saveWidgets();
+  closeModal('widgetModal'); renderWidgets(); toast('Widget added ✓','ok');
+}
+
+function removeWidget(wid){
+  const tok=selToken(); if(!tok)return;
+  if(leafletMaps[wid]){ leafletMaps[wid].remove(); delete leafletMaps[wid]; }
+  widgetLayout[tok]=(widgetLayout[tok]||[]).filter(w=>w.id!==wid);
+  delete chartData[wid]; saveWidgets(); renderWidgets();
+}
+
+function getW(wid){ return(widgetsFor(selToken())||[]).find(w=>w.id===wid); }
+
+// ════════════════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════════════════
+function renderWidgets(){
+  const grid=document.getElementById('widgetGrid'), empty=document.getElementById('emptyWidgets');
+  const tok=selToken(), ws2=widgetsFor(tok);
+  Object.keys(leafletMaps).forEach(wid=>{ leafletMaps[wid].remove(); delete leafletMaps[wid]; });
+  if(!ws2.length){ grid.innerHTML=''; empty.style.display=''; return; }
+  empty.style.display='none';
+  grid.innerHTML=ws2.map(w=>buildCard(w)).join('');
+  ws2.forEach(w=>{
+    const d=devices[selectedId];
+    if(w.type==='map'){ initMap(w); tryMap(w,d); }
+    else{
+      if(w.type==='chart'){ if(!chartData[w.id]) chartData[w.id]=[]; drawChart(w.id,w); }
+      const v=d?.pins[w.pin]; if(v!==undefined) applyValue(w,v);
+    }
+  });
+}
+
+function buildCard(w){
+  const wide=['chart','slider','map'].includes(w.type);
+  const rm=`<button class="wcard-remove" onclick="removeWidget('${w.id}')" title="Remove">✕</button>`;
+  const badge=w.type==='map'?`<span class="wpin">V${w.latPin}/V${w.lonPin}</span>`:`<span class="wpin">V${w.pin}</span>`;
+  const hdr=`<div class="wcard-header"><span class="wcard-label">${esc(w.label)}</span>${badge}</div>`;
+  let body='';
+  switch(w.type){
+    case 'value':
+      body=`<div class="w-value"><div class="w-value-num" id="v_${w.id}" style="color:${w.color}">–</div>${w.unit?`<div class="w-value-unit">${esc(w.unit)}</div>`:''}</div>`; break;
+    case 'led':
+      body=`<div class="w-led"><div class="led-bulb" id="v_${w.id}" style="color:${w.color}"></div><div class="led-state" id="ls_${w.id}">OFF</div></div>`; break;
+    case 'button':
+      body=`<div class="w-btn-wrap"><button class="iot-btn off" id="v_${w.id}" onclick="toggleBtn('${w.id}')">○  OFF</button></div>`; break;
+    case 'slider':
+      body=`<div class="w-slider">
+        <div class="slider-val" id="v_${w.id}" style="color:${w.color}">${w.min}</div>
+        <input type="range" id="sl_${w.id}" min="${w.min}" max="${w.max}" value="${w.min}"
+          style="background:linear-gradient(to right,${w.color} 0%,var(--border2) 0%)"
+          oninput="onSlider('${w.id}',this,${w.min},${w.max})">
+        <div class="slider-range"><span>${w.min}</span><span>${w.max}</span></div>
+      </div>`; break;
+    case 'gauge':
+      body=`<div class="w-gauge">
+        <svg class="gauge-svg" viewBox="0 0 120 82" width="154" height="112">
+          <path class="g-track" d="${garc(60,64,44,135,405)}"/>
+          <path class="g-fill" id="v_${w.id}" stroke="${w.color}" d="${garc(60,64,44,135,135)}"/>
+          <text class="g-val" id="gv_${w.id}" x="60" y="66" text-anchor="middle">–</text>
+          <text class="g-unit" x="60" y="77" text-anchor="middle">${esc(w.unit||'')}</text>
+        </svg>
+        <div class="gauge-minmax"><span>${w.min}</span><span>${w.max}</span></div>
+      </div>`; break;
+    case 'chart':
+      body=`<canvas class="chart-cv" id="v_${w.id}"></canvas>
+        <div class="chart-footer"><div class="chart-latest" id="cl_${w.id}" style="color:${w.color}">–</div><div class="chart-lbl">latest</div></div>`; break;
+    case 'map':
+      body=`<div class="map-wrap" id="v_${w.id}">
+        <div class="map-no-gps" id="mgps_${w.id}"><div class="map-no-gps-icon">📍</div><div>Waiting for GPS…</div><div style="font-size:11px">V${w.latPin} = lat, V${w.lonPin} = lon</div></div>
+      </div>
+      <div class="map-coords" id="mc_${w.id}">No position yet</div>`; break;
+  }
+  return`<div class="wcard${wide?' span2':''}" id="wcard_${w.id}">${rm}${hdr}${body}</div>`;
+}
+
+// ════════════════════════════════════════════════════════
+//  MAP
+// ════════════════════════════════════════════════════════
+function initMap(w){
+  if(leafletMaps[w.id])return;
+  const map=L.map(`v_${w.id}`,{zoomControl:true,scrollWheelZoom:false}).setView([25,55],4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(map);
+  const icon=L.divIcon({html:`<div style="width:14px;height:14px;border-radius:50%;background:${w.color};border:2px solid #fff;box-shadow:0 0 10px ${w.color}88"></div>`,iconSize:[14,14],iconAnchor:[7,7],className:''});
+  map._m=L.marker([25,55],{icon}).addTo(map);
+  leafletMaps[w.id]=map;
+}
+
+function tryMap(w,d){
+  if(!d)return;
+  const lat=parseFloat(d.pins[w.latPin]), lon=parseFloat(d.pins[w.lonPin]);
+  if(isNaN(lat)||isNaN(lon))return;
+  const hint=document.getElementById(`mgps_${w.id}`); if(hint)hint.style.display='none';
+  const coords=document.getElementById(`mc_${w.id}`); if(coords)coords.textContent=`${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  const map=leafletMaps[w.id]; if(!map)return;
+  map.setView([lat,lon],15);
+  if(map._m){ map._m.setLatLng([lat,lon]); map._m.bindPopup(`📍 ${lat.toFixed(5)}, ${lon.toFixed(5)}`).openPopup(); }
+  setTimeout(()=>map.invalidateSize(),120);
+}
+
+// ════════════════════════════════════════════════════════
+//  PIN UPDATES
+// ════════════════════════════════════════════════════════
+function updateByPin(devId,pin,value){
+  const tok=devices[devId]?.token; if(!tok)return;
+  widgetsFor(tok).forEach(w=>{
+    if(w.type==='map'){ if(w.latPin==pin||w.lonPin==pin) tryMap(w,devices[devId]); }
+    else if(w.pin==pin) applyValue(w,value);
+  });
+}
+
+function applyValue(w,value){
+  const v=parseFloat(value);
+  switch(w.type){
+    case 'value':{ const e=document.getElementById(`v_${w.id}`); if(e) e.textContent=fmt(v,value); break; }
+    case 'led':{
+      const b=document.getElementById(`v_${w.id}`), l=document.getElementById(`ls_${w.id}`);
+      const on=v!==0&&value!=='0';
+      if(b){ b.classList.toggle('on',on); b.style.background=on?w.color:'var(--border2)'; b.style.color=on?w.color:''; }
+      if(l){ l.textContent=on?'ON':'OFF'; l.style.color=on?w.color:'var(--text2)'; } break;
+    }
+    case 'button':{
+      const b=document.getElementById(`v_${w.id}`); if(!b)break;
+      const on=v!==0;
+      b.className='iot-btn '+(on?'on':'off');
+      b.style.background=on?w.color:''; b.style.boxShadow=on?`0 4px 24px ${w.color}55`:'';
+      b.textContent=on?'●  ON':'○  OFF'; break;
+    }
+    case 'slider':{
+      const sl=document.getElementById(`sl_${w.id}`), tv=document.getElementById(`v_${w.id}`);
+      if(sl)sl.value=v; if(tv)tv.textContent=fmt(v,value);
+      if(sl) slBg(sl,w.min,w.max,w.color); break;
+    }
+    case 'gauge':{
+      if(isNaN(v))break;
+      const pct=Math.max(0,Math.min(1,(v-w.min)/(w.max-w.min)));
+      const p=document.getElementById(`v_${w.id}`), t=document.getElementById(`gv_${w.id}`);
+      if(p) p.setAttribute('d',garc(60,64,44,135,135+pct*270));
+      if(t) t.textContent=fmt(v,value); break;
+    }
+    case 'chart':{
+      if(!chartData[w.id])chartData[w.id]=[];
+      chartData[w.id].push(isNaN(v)?0:v);
+      if(chartData[w.id].length>60)chartData[w.id].shift();
+      const l=document.getElementById(`cl_${w.id}`); if(l)l.textContent=fmt(v,value);
+      drawChart(w.id,w); break;
+    }
+  }
+}
+
+function fmt(v,raw){ return isNaN(v)?raw:(Number.isInteger(v)?v:v.toFixed(2)); }
+
+// ════════════════════════════════════════════════════════
+//  GAUGE MATH
+// ════════════════════════════════════════════════════════
+function pxy(cx,cy,r,d){const a=(d-90)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+function garc(cx,cy,r,s,e){const[x1,y1]=pxy(cx,cy,r,s),[x2,y2]=pxy(cx,cy,r,e);return`M${x1} ${y1}A${r} ${r} 0 ${e-s>180?1:0} 1 ${x2} ${y2}`;}
+
+// ════════════════════════════════════════════════════════
+//  CHART
+// ════════════════════════════════════════════════════════
+function drawChart(wid,w){
+  const c=document.getElementById(`v_${wid}`); if(!c)return;
+  const ctx=c.getContext('2d'); c.width=c.offsetWidth||300; c.height=c.offsetHeight||110;
+  const data=chartData[wid]||[]; ctx.clearRect(0,0,c.width,c.height);
+  if(data.length<2){ ctx.fillStyle='rgba(139,157,195,.3)'; ctx.font='12px Inter,sans-serif'; ctx.textAlign='center'; ctx.fillText('Waiting for data…',c.width/2,c.height/2); return; }
+  const mn=Math.min(...data,w.min),mx=Math.max(...data,w.max),rng=mx-mn||1,W=c.width,H=c.height,p=8;
+  const x=i=>p+(i/(data.length-1))*(W-2*p), y=v=>H-p-((v-mn)/rng)*(H-2*p);
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,w.color+'55'); g.addColorStop(1,w.color+'00');
+  ctx.beginPath(); ctx.moveTo(x(0),H); data.forEach((v,i)=>ctx.lineTo(x(i),y(v))); ctx.lineTo(x(data.length-1),H); ctx.closePath(); ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); data.forEach((v,i)=>i?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v))); ctx.strokeStyle=w.color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.stroke();
+  const li=data.length-1; ctx.beginPath(); ctx.arc(x(li),y(data[li]),4.5,0,Math.PI*2); ctx.fillStyle=w.color; ctx.shadowColor=w.color; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0;
+}
+
+// ════════════════════════════════════════════════════════
+//  CONTROLS
+// ════════════════════════════════════════════════════════
+function toggleBtn(wid){
+  const w=getW(wid); if(!w)return;
+  const cur=devices[selectedId]?.pins[w.pin]||'0';
+  wsSend({type:'vw',deviceId:selectedId,pin:w.pin,value:parseFloat(cur)?'0':'1'});
+}
+function onSlider(wid,el,min,max){
+  const v=parseFloat(el.value), w=getW(wid);
+  document.getElementById(`v_${wid}`).textContent=v;
+  slBg(el,min,max,w?.color||'var(--accent)');
+  wsSend({type:'vw',deviceId:selectedId,pin:w?.pin,value:String(v)});
+}
+function slBg(el,min,max,color){
+  const p=((parseFloat(el.value)-min)/(max-min))*100;
+  el.style.background=`linear-gradient(to right,${color} ${p}%,var(--border2) ${p}%)`;
+}
+
+// ════════════════════════════════════════════════════════
+//  MODAL / UTIL
+// ════════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+function show(id,on){ document.getElementById(id).style.display=on?'':'none'; }
+
+let toastT;
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3000);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function timeAgo(iso){ if(!iso)return'never'; const s=Math.floor((Date.now()-new Date(iso))/1000); return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:`${Math.floor(s/3600)}h ago`; }
+
+window.addEventListener('resize',()=>{
+  const tok=selToken();
+  widgetsFor(tok).forEach(w=>{
+    if(w.type==='chart') drawChart(w.id,w);
+    if(w.type==='map'&&leafletMaps[w.id]) leafletMaps[w.id].invalidateSize();
+  });
+});
+</script>
+</body>
+</html>
