@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zyvon Dashboard</title>
+<style>
+:root {
+  --bg:        #080c14;
+  --surface:   #0f1623;
+  --card:      #131d2e;
+  --border:    #1e2d42;
+  --accent:    #00d4ff;
+  --accent2:   #7c3aed;
+  --green:     #10b981;
+  --red:       #ef4444;
+  --yellow:    #f59e0b;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --radius:    14px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+/* ── Topbar ── */
+.topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:58px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
+.logo span{font-weight:300}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.ws-status{display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted)}
+.ws-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .4s}
+.ws-status.connected .ws-dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.ws-status.connected{color:var(--green)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:#00b8e0;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--muted)}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-danger:hover{background:rgba(239,68,68,.3)}
+/* ── Layout ── */
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:240px;min-width:240px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sidebar-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.device-list{flex:1;overflow-y:auto;padding:8px}
+.device-item{padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .2s;border:1px solid transparent;margin-bottom:4px}
+.device-item:hover{background:var(--card)}
+.device-item.active{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2)}
+.device-name{font-size:13px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:7px}
+.device-status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.device-item.online .device-status-dot{background:var(--green);box-shadow:0 0 5px var(--green)}
+.device-token{font-size:10px;color:var(--muted);font-family:monospace}
+.device-lastseen{font-size:10px;color:var(--muted);margin-top:2px}
+/* ── Main ── */
+.main{flex:1;overflow-y:auto;padding:20px}
+.main-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.device-title{font-size:22px;font-weight:700}
+.device-subtitle{font-size:13px;color:var(--muted);margin-top:2px}
+.widget-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.empty-state{text-align:center;padding:80px 20px;color:var(--muted)}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-title{font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px}
+/* ── Widget Card ── */
+.widget-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;transition:border-color .2s}
+.widget-card:hover{border-color:rgba(0,212,255,.2)}
+.widget-card.span2{grid-column:span 2}
+.widget-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.widget-pin-badge{font-size:10px;background:rgba(0,212,255,.1);color:var(--accent);padding:2px 7px;border-radius:10px;font-family:monospace}
+.widget-remove{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.15);border:none;color:var(--red);cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center;line-height:1}
+.widget-card:hover .widget-remove{display:flex}
+/* ── Value Display ── */
+.widget-value-display{text-align:center;padding:10px 0}
+.widget-value-big{font-size:42px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.widget-value-unit{font-size:14px;color:var(--muted);margin-top:4px}
+/* ── LED ── */
+.led-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 0;gap:10px}
+.led-bulb{width:52px;height:52px;border-radius:50%;background:var(--muted);transition:all .4s;position:relative}
+.led-bulb.on{background:var(--green);box-shadow:0 0 20px var(--green),0 0 40px rgba(16,185,129,.3)}
+.led-bulb::after{content:'';position:absolute;top:20%;left:25%;width:35%;height:35%;background:rgba(255,255,255,.3);border-radius:50%}
+.led-label{font-size:13px;color:var(--muted);font-weight:500}
+/* ── Button Widget ── */
+.widget-button-wrap{padding:8px 0}
+.iot-button{width:100%;padding:18px;border-radius:12px;border:none;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.3px;user-select:none}
+.iot-button.on{background:var(--accent);color:#000;box-shadow:0 4px 20px rgba(0,212,255,.4)}
+.iot-button.off{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
+/* ── Slider ── */
+.widget-slider-wrap{padding:4px 0 8px}
+.slider-track{position:relative;padding:8px 0}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(0,212,255,.5);cursor:pointer}
+.slider-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+.slider-value{text-align:center;font-size:24px;font-weight:700;margin-bottom:8px}
+/* ── Gauge ── */
+.gauge-wrap{display:flex;justify-content:center;align-items:center;flex-direction:column;padding:4px 0}
+.gauge-svg{overflow:visible}
+.gauge-track{fill:none;stroke:var(--border);stroke-width:8;stroke-linecap:round}
+.gauge-fill{fill:none;stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .6s ease}
+.gauge-text{font-size:16px;font-weight:800;fill:var(--text);font-family:'Segoe UI',sans-serif}
+.gauge-unit{font-size:9px;fill:var(--muted);font-family:'Segoe UI',sans-serif}
+.gauge-min-max{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);width:140px;margin-top:-4px}
+/* ── Chart ── */
+.chart-canvas{width:100%;height:100px;display:block}
+.chart-value{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+/* ── Modals ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;padding:16px}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:440px;box-shadow:var(--shadow);transform:translateY(16px);transition:transform .2s}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.field input,.field select{width:100%;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field select option{background:var(--card)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+/* ── Token display ── */
+.token-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:15px;letter-spacing:2px;color:var(--accent);text-align:center;margin:12px 0;user-select:all}
+.token-hint{font-size:12px;color:var(--muted);text-align:center}
+/* ── Color swatches ── */
+.color-swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.swatch{width:28px;height:28px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.swatch.sel{border-color:white;transform:scale(1.15)}
+/* ── Responsive ── */
+@media(max-width:600px){
+  .sidebar{width:100%;min-width:0;max-height:180px;border-right:none;border-bottom:1px solid var(--border)}
+  .layout{flex-direction:column}
+  .widget-grid{grid-template-columns:1fr 1fr}
+  .widget-card.span2{grid-column:span 2}
+}
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* ── Toasts ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;z-index:300;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:none;opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+/* Widget type selector */
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+.type-btn{padding:10px 6px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all .2s}
+.type-btn:hover{border-color:var(--muted);color:var(--text)}
+.type-btn.sel{border-color:var(--accent);background:rgba(0,212,255,.1);color:var(--accent)}
+.type-btn .type-icon{font-size:22px;display:block;margin-bottom:4px}
+/* No device selected */
+.no-device{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:40px}
+.no-device-icon{font-size:56px;margin-bottom:16px;opacity:.3}
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<header class="topbar">
+  <div class="logo">Zyvon</div>
+  <div class="topbar-right">
+    <div class="ws-status" id="wsStatus">
+      <span class="ws-dot"></span><span id="wsStatusText">Connecting…</span>
+    </div>
+    <button class="btn btn-ghost" onclick="openDeviceModal()">+ Device</button>
+    <button class="btn btn-primary" id="addWidgetBtn" onclick="openWidgetModal()" disabled>+ Widget</button>
+  </div>
+</header>
+
+<!-- ── Layout ── -->
+<div class="layout">
+  <!-- Sidebar: device list -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Devices</span>
+    </div>
+    <div class="device-list" id="deviceList">
+      <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">No devices yet</div>
+    </div>
+  </aside>
+
+  <!-- Main: widget grid -->
+  <main class="main">
+    <div id="noDeviceView" class="no-device">
+      <div class="no-device-icon">📡</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Select a Device</div>
+      <div style="font-size:14px">Create a device token, flash the library to your ESP, then add widgets</div>
+    </div>
+    <div id="deviceView" style="display:none">
+      <div class="main-header">
+        <div>
+          <div class="device-title" id="deviceViewName">–</div>
+          <div class="device-subtitle" id="deviceViewInfo">–</div>
+        </div>
+        <button class="btn btn-danger" onclick="deleteCurrentDevice()">Delete Device</button>
+      </div>
+      <div class="widget-grid" id="widgetGrid"></div>
+      <div id="emptyWidgets" class="empty-state" style="display:none">
+        <div class="empty-icon">🧩</div>
+        <div class="empty-title">No widgets yet</div>
+        <p>Click <strong>+ Widget</strong> to add a button, slider, gauge, and more</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Modal: Create Device ── -->
+<div class="modal-overlay" id="deviceModal">
+  <div class="modal">
+    <h2>Create Device</h2>
+    <p class="modal-sub">Generate a token for your ESP32/ESP8266</p>
+    <div class="field">
+      <label>Device Name</label>
+      <input id="newDeviceName" placeholder="e.g. Living Room Sensor" />
+    </div>
+    <div id="newTokenWrap" style="display:none">
+      <div class="token-box" id="newToken"></div>
+      <div class="token-hint">📋 Copy this token — use it in <code>Zyvon.begin()</code></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deviceModal')">Close</button>
+      <button class="btn btn-primary" id="createDeviceBtn" onclick="createDevice()">Generate Token</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Add Widget ── -->
+<div class="modal-overlay" id="widgetModal">
+  <div class="modal">
+    <h2>Add Widget</h2>
+    <p class="modal-sub">Configure a control or display for a virtual pin</p>
+    <div class="field">
+      <label>Widget Type</label>
+      <div class="type-grid">
+        <div class="type-btn sel" data-type="value" onclick="selectType(this)"><span class="type-icon">🔢</span>Value</div>
+        <div class="type-btn" data-type="button" onclick="selectType(this)"><span class="type-icon">🔘</span>Button</div>
+        <div class="type-btn" data-type="slider" onclick="selectType(this)"><span class="type-icon">🎚️</span>Slider</div>
+        <div class="type-btn" data-type="gauge" onclick="selectType(this)"><span class="type-icon">🌡️</span>Gauge</div>
+        <div class="type-btn" data-type="led" onclick="selectType(this)"><span class="type-icon">💡</span>LED</div>
+        <div class="type-btn" data-type="chart" onclick="selectType(this)"><span class="type-icon">📈</span>Chart</div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Label</label>
+        <input id="wLabel" placeholder="Temperature" />
+      </div>
+      <div class="field">
+        <label>Virtual Pin</label>
+        <input id="wPin" type="number" min="0" max="127" value="0" />
+      </div>
+    </div>
+    <div class="field-row" id="wMinMaxRow">
+      <div class="field">
+        <label>Min</label>
+        <input id="wMin" type="number" value="0" />
+      </div>
+      <div class="field">
+        <label>Max</label>
+        <input id="wMax" type="number" value="100" />
+      </div>
+    </div>
+    <div class="field" id="wUnitRow">
+      <label>Unit (optional)</label>
+      <input id="wUnit" placeholder="°C, %, lux …" />
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <div class="color-swatches" id="colorSwatches"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('widgetModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addWidget()">Add Widget</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+let ws = null;
+let devices = {};          // id → device object
+let selectedDeviceId = null;
+// widgets: { [deviceId]: [ {id,type,pin,label,color,min,max,unit} ] }
+let widgetLayout = JSON.parse(localStorage.getItem('bf_widgets') || '{}');
+// chart histories
+let chartData = {};        // widgetId → number[]
+
+const COLORS = ['#00d4ff','#7c3aed','#10b981','#f59e0b','#ef4444','#ec4899','#f97316','#3b82f6'];
+
+// ══════════════════════════════════════════════════════════
+//  WEBSOCKET
+// ══════════════════════════════════════════════════════════
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url   = `${proto}://${location.host}/dashboard`;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setWsStatus(true);
+    // Request all pin states
+    Object.values(devices).forEach(d =>
+      wsSend({ type: 'requestPins', deviceId: d.id })
+    );
+  };
+
+  ws.onclose = () => {
+    setWsStatus(false);
+    setTimeout(connect, 3000);
+  };
+
+  ws.onmessage = (e) => {
+    try { handleMessage(JSON.parse(e.data)); } catch {}
+  };
+}
+
+function wsSend(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify(obj));
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'devices':
+      devices = {};
+      msg.devices.forEach(d => devices[d.id] = d);
+      renderDeviceList();
+      if (selectedDeviceId && !devices[selectedDeviceId]) selectedDeviceId = null;
+      if (selectedDeviceId) refreshDeviceView();
+      break;
+
+    case 'vw': {
+      // Store pin value
+      const d = devices[msg.deviceId];
+      if (d) d.pins[msg.pin] = msg.value;
+      // Update widgets
+      updateWidgetValue(msg.deviceId, msg.pin, msg.value);
+      break;
+    }
+
+    case 'pinState':
+      if (devices[msg.deviceId]) {
+        devices[msg.deviceId].pins = { ...devices[msg.deviceId].pins, ...msg.pins };
+        // Refresh all widgets for this device
+        const widgets = widgetLayout[msg.deviceId] || [];
+        widgets.forEach(w => {
+          const v = msg.pins[w.pin];
+          if (v !== undefined) updateWidgetValue(msg.deviceId, w.pin, v);
+        });
+      }
+      break;
+  }
+}
+
+function setWsStatus(connected) {
+  const el  = document.getElementById('wsStatus');
+  const txt = document.getElementById('wsStatusText');
+  el.className  = 'ws-status' + (connected ? ' connected' : '');
+  txt.textContent = connected ? 'Live' : 'Reconnecting…';
+}
+
+// ══════════════════════════════════════════════════════════
+//  DEVICE LIST
+// ══════════════════════════════════════════════════════════
+function renderDeviceList() {
+  const list = document.getElementById('deviceList');
+  const ids  = Object.keys(devices);
+  if (!ids.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">No devices yet.<br>Click <b>+ Device</b> to start.</div>';
+    return;
+  }
+  list.innerHTML = ids.map(id => {
+    const d = devices[id];
+    const active = id === selectedDeviceId ? ' active' : '';
+    const online = d.online ? ' online' : '';
+    const seen   = d.lastSeen ? timeAgo(d.lastSeen) : 'never';
+    return `<div class="device-item${active}${online}" onclick="selectDevice('${id}')">
+      <div class="device-name"><span class="device-status-dot"></span>${esc(d.name)}</div>
+      <div class="device-token">${d.token}</div>
+      <div class="device-lastseen">${d.online ? '🟢 Online' : `⚪ ${seen}`}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectDevice(id) {
+  selectedDeviceId = id;
+  renderDeviceList();
+  refreshDeviceView();
+  document.getElementById('addWidgetBtn').disabled = false;
+  wsSend({ type: 'requestPins', deviceId: id });
+}
+
+function refreshDeviceView() {
+  const d = devices[selectedDeviceId];
+  if (!d) {
+    document.getElementById('noDeviceView').style.display = '';
+    document.getElementById('deviceView').style.display = 'none';
+    return;
+  }
+  document.getElementById('noDeviceView').style.display = 'none';
+  document.getElementById('deviceView').style.display = '';
+  document.getElementById('deviceViewName').textContent = d.name;
+  document.getElementById('deviceViewInfo').textContent =
+    `Token: ${d.token}  •  ${d.online ? '🟢 Online' : '⚪ Offline'}`;
+  renderWidgets();
+}
+
+// ══════════════════════════════════════════════════════════
+//  DEVICE MANAGEMENT
+// ══════════════════════════════════════════════════════════
+function openDeviceModal() {
+  document.getElementById('newDeviceName').value = '';
+  document.getElementById('newTokenWrap').style.display = 'none';
+  document.getElementById('createDeviceBtn').style.display = '';
+  openModal('deviceModal');
+}
+
+async function createDevice() {
+  const name = document.getElementById('newDeviceName').value.trim() || 'My Device';
+  const r = await fetch('/api/device/create', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  const data = await r.json();
+  document.getElementById('newToken').textContent = data.token;
+  document.getElementById('newTokenWrap').style.display = '';
+  document.getElementById('createDeviceBtn').style.display = 'none';
+  showToast(`Device "${data.name}" created!`, 'success');
+}
+
+async function deleteCurrentDevice() {
+  if (!selectedDeviceId) return;
+  const d = devices[selectedDeviceId];
+  if (!confirm(`Delete "${d.name}"? This cannot be undone.`)) return;
+  await fetch(`/api/device/${d.token}`, { method: 'DELETE' });
+  // Remove widgets
+  delete widgetLayout[selectedDeviceId];
+  saveWidgets();
+  selectedDeviceId = null;
+  document.getElementById('addWidgetBtn').disabled = true;
+  document.getElementById('noDeviceView').style.display = '';
+  document.getElementById('deviceView').style.display = 'none';
+  showToast('Device deleted', 'error');
+}
+
+// ══════════════════════════════════════════════════════════
+//  WIDGET MANAGEMENT
+// ══════════════════════════════════════════════════════════
+let selectedWidgetType = 'value';
+let selectedColor = COLORS[0];
+
+function selectType(el) {
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  selectedWidgetType = el.dataset.type;
+  const needsMinMax = ['slider','gauge','chart'].includes(selectedWidgetType);
+  document.getElementById('wMinMaxRow').style.display = needsMinMax ? '' : 'none';
+  document.getElementById('wUnitRow').style.display   = ['gauge','value'].includes(selectedWidgetType) ? '' : 'none';
+}
+
+function openWidgetModal() {
+  if (!selectedDeviceId) return;
+  selectedWidgetType = 'value';
+  selectedColor = COLORS[0];
+  document.querySelectorAll('.type-btn').forEach((b,i) => b.classList.toggle('sel', i===0));
+  document.getElementById('wLabel').value = '';
+  document.getElementById('wPin').value   = '0';
+  document.getElementById('wMin').value   = '0';
+  document.getElementById('wMax').value   = '100';
+  document.getElementById('wUnit').value  = '';
+  document.getElementById('wMinMaxRow').style.display = 'none';
+  document.getElementById('wUnitRow').style.display   = '';
+  // Color swatches
+  const sw = document.getElementById('colorSwatches');
+  sw.innerHTML = COLORS.map(c =>
+    `<div class="swatch${c===selectedColor?' sel':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`
+  ).join('');
+  openModal('widgetModal');
+}
+
+function pickColor(c, el) {
+  selectedColor = c;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function addWidget() {
+  if (!selectedDeviceId) return;
+  const w = {
+    id:    Date.now() + Math.random().toString(36).slice(2),
+    type:  selectedWidgetType,
+    label: document.getElementById('wLabel').value.trim() || 'Widget',
+    pin:   parseInt(document.getElementById('wPin').value) || 0,
+    min:   parseFloat(document.getElementById('wMin').value) || 0,
+    max:   parseFloat(document.getElementById('wMax').value) || 100,
+    unit:  document.getElementById('wUnit').value.trim(),
+    color: selectedColor,
+  };
+  if (!widgetLayout[selectedDeviceId]) widgetLayout[selectedDeviceId] = [];
+  widgetLayout[selectedDeviceId].push(w);
+  saveWidgets();
+  closeModal('widgetModal');
+  renderWidgets();
+  // Init chart data
+  if (w.type === 'chart') chartData[w.id] = [];
+  showToast('Widget added ✓', 'success');
+}
+
+function removeWidget(wid) {
+  if (!selectedDeviceId) return;
+  widgetLayout[selectedDeviceId] = (widgetLayout[selectedDeviceId] || []).filter(w => w.id !== wid);
+  delete chartData[wid];
+  saveWidgets();
+  renderWidgets();
+}
+
+function saveWidgets() {
+  localStorage.setItem('bf_widgets', JSON.stringify(widgetLayout));
+}
+
+// ══════════════════════════════════════════════════════════
+//  WIDGET RENDERING
+// ══════════════════════════════════════════════════════════
+function renderWidgets() {
+  const grid = document.getElementById('widgetGrid');
+  const empty = document.getElementById('emptyWidgets');
+  const widgets = widgetLayout[selectedDeviceId] || [];
+  if (!widgets.length) { grid.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = widgets.map(w => buildWidgetHTML(w)).join('');
+  // Post-render setup
+  widgets.forEach(w => {
+    const d = devices[selectedDeviceId];
+    const val = d?.pins[w.pin];
+    if (val !== undefined) updateWidgetDOM(w, val);
+    // Chart init
+    if (w.type === 'chart') {
+      if (!chartData[w.id]) chartData[w.id] = [];
+      drawChart(w.id, w);
+    }
+  });
+}
+
+function buildWidgetHTML(w) {
+  const span2 = ['chart','slider'].includes(w.type) ? ' span2' : '';
+  const rmBtn  = `<button class="widget-remove" onclick="removeWidget('${w.id}')" title="Remove">✕</button>`;
+  const pinBadge = `<span class="widget-pin-badge">V${w.pin}</span>`;
+  const label = `<div class="widget-label">${esc(w.label)} ${pinBadge}</div>`;
+
+  let body = '';
+  switch (w.type) {
+    case 'value':
+      body = `<div class="widget-value-display">
+        <div class="widget-value-big" id="val_${w.id}" style="color:${w.color}">–</div>
+        ${w.unit ? `<div class="widget-value-unit">${esc(w.unit)}</div>` : ''}
+      </div>`;
+      break;
+
+    case 'led':
+      body = `<div class="led-wrap">
+        <div class="led-bulb" id="led_${w.id}" style="--led-color:${w.color}"></div>
+        <div class="led-label" id="ledlabel_${w.id}">OFF</div>
+      </div>`;
+      break;
+
+    case 'button':
+      body = `<div class="widget-button-wrap">
+        <button class="iot-button off" id="btn_${w.id}"
+          onmousedown="sendPin('${w.id}','1')" onmouseup="sendPin('${w.id}','0')"
+          ontouchstart="sendPin('${w.id}','1')" ontouchend="sendPin('${w.id}','0')"
+          onclick="toggleBtn('${w.id}')">TAP</button>
+      </div>`;
+      break;
+
+    case 'slider':
+      body = `<div class="widget-slider-wrap">
+        <div class="slider-value" id="slval_${w.id}" style="color:${w.color}">0</div>
+        <div class="slider-track">
+          <input type="range" id="sl_${w.id}" min="${w.min}" max="${w.max}" value="${w.min}"
+            style="background:linear-gradient(to right,${w.color} 0%,var(--border) 0%)"
+            oninput="onSlider('${w.id}',this,${w.min},${w.max})">
+        </div>
+        <div class="slider-labels"><span>${w.min}</span><span>${w.max}</span></div>
+      </div>`;
+      break;
+
+    case 'gauge':
+      body = `<div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 120 80" width="160" height="110">
+          <path class="gauge-track" d="${gaugeArcPath(60,62,44,135,405)}"/>
+          <path class="gauge-fill" id="gf_${w.id}" stroke="${w.color}"
+            d="${gaugeArcPath(60,62,44,135,135)}" style="stroke-dasharray:1;stroke-dashoffset:0"/>
+          <text class="gauge-text" id="gval_${w.id}" x="60" y="64" text-anchor="middle">–</text>
+          <text class="gauge-unit" x="60" y="74" text-anchor="middle">${esc(w.unit||'')}</text>
+        </svg>
+        <div class="gauge-min-max"><span>${w.min}</span><span>${w.max}</span></div>
+      </div>`;
+      break;
+
+    case 'chart':
+      body = `<canvas class="chart-canvas" id="chart_${w.id}"></canvas>
+        <div class="chart-value" id="chartval_${w.id}" style="color:${w.color}">–</div>`;
+      break;
+  }
+  return `<div class="widget-card${span2}" id="wcard_${w.id}">${rmBtn}${label}${body}</div>`;
+}
+
+// ── Gauge arc math ───────────────────────────────────────
+function polarXY(cx, cy, r, deg) {
+  const rad = (deg - 90) * Math.PI / 180;
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+
+function gaugeArcPath(cx, cy, r, startDeg, endDeg) {
+  const [x1,y1] = polarXY(cx,cy,r,startDeg);
+  const [x2,y2] = polarXY(cx,cy,r,endDeg);
+  const sweep = endDeg - startDeg;
+  const large = sweep > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PIN VALUE UPDATES
+// ══════════════════════════════════════════════════════════
+function updateWidgetValue(deviceId, pin, value) {
+  const widgets = widgetLayout[deviceId] || [];
+  widgets.filter(w => w.pin == pin).forEach(w => updateWidgetDOM(w, value));
+}
+
+function updateWidgetDOM(w, value) {
+  const v = parseFloat(value);
+  switch (w.type) {
+    case 'value': {
+      const el = document.getElementById(`val_${w.id}`);
+      if (el) el.textContent = isNaN(v) ? value : (Number.isInteger(v) ? v : v.toFixed(2));
+      break;
+    }
+    case 'led': {
+      const b = document.getElementById(`led_${w.id}`);
+      const l = document.getElementById(`ledlabel_${w.id}`);
+      const on = parseFloat(value) !== 0 && value !== '0' && value !== '';
+      if (b) { b.classList.toggle('on', on); b.style.background = on ? w.color : ''; b.style.boxShadow = on ? `0 0 20px ${w.color},0 0 40px ${w.color}44` : ''; }
+      if (l) l.textContent = on ? 'ON' : 'OFF';
+      break;
+    }
+    case 'button': {
+      const b = document.getElementById(`btn_${w.id}`);
+      if (!b) break;
+      const on = v !== 0;
+      b.className = 'iot-button ' + (on ? 'on' : 'off');
+      b.style.background = on ? w.color : '';
+      b.style.boxShadow  = on ? `0 4px 20px ${w.color}66` : '';
+      b.textContent = on ? '● ON' : '○ OFF';
+      break;
+    }
+    case 'slider': {
+      const sl  = document.getElementById(`sl_${w.id}`);
+      const txt = document.getElementById(`slval_${w.id}`);
+      if (sl)  sl.value = v;
+      if (txt) txt.textContent = isNaN(v) ? value : v;
+      if (sl)  updateSliderBg(sl, w.min, w.max, w.color);
+      break;
+    }
+    case 'gauge': {
+      if (isNaN(v)) break;
+      const pct  = Math.max(0, Math.min(1, (v - w.min) / (w.max - w.min)));
+      const endD = 135 + pct * 270;
+      const path = document.getElementById(`gf_${w.id}`);
+      const txt  = document.getElementById(`gval_${w.id}`);
+      if (path) path.setAttribute('d', gaugeArcPath(60, 62, 44, 135, endD));
+      if (txt)  txt.textContent = isNaN(v) ? value : (Number.isInteger(v) ? v : v.toFixed(1));
+      break;
+    }
+    case 'chart': {
+      if (!chartData[w.id]) chartData[w.id] = [];
+      chartData[w.id].push(isNaN(v) ? 0 : v);
+      if (chartData[w.id].length > 60) chartData[w.id].shift();
+      const lbl = document.getElementById(`chartval_${w.id}`);
+      if (lbl) lbl.textContent = `Latest: ${isNaN(v) ? value : v}`;
+      drawChart(w.id, w);
+      break;
+    }
+  }
+}
+
+// ── Chart drawing ────────────────────────────────────────
+function drawChart(wid, w) {
+  const canvas = document.getElementById(`chart_${wid}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth  || 300;
+  canvas.height = canvas.offsetHeight || 100;
+  const data = chartData[wid] || [];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (data.length < 2) {
+    ctx.fillStyle = 'rgba(100,116,139,0.4)';
+    ctx.font = '12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Waiting for data…', canvas.width/2, canvas.height/2);
+    return;
+  }
+
+  const minV = Math.min(...data, w.min);
+  const maxV = Math.max(...data, w.max);
+  const range = maxV - minV || 1;
+  const W = canvas.width, H = canvas.height;
+  const pad = 6;
+
+  const x = i => pad + (i / (data.length - 1)) * (W - 2*pad);
+  const y = v => H - pad - ((v - minV) / range) * (H - 2*pad);
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, w.color + '44');
+  grad.addColorStop(1, w.color + '00');
+  ctx.beginPath();
+  ctx.moveTo(x(0), H);
+  data.forEach((v, i) => ctx.lineTo(x(i), y(v)));
+  ctx.lineTo(x(data.length-1), H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => i === 0 ? ctx.moveTo(x(i), y(v)) : ctx.lineTo(x(i), y(v)));
+  ctx.strokeStyle = w.color;
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+
+  // Last dot
+  const li = data.length - 1;
+  ctx.beginPath();
+  ctx.arc(x(li), y(data[li]), 4, 0, Math.PI * 2);
+  ctx.fillStyle = w.color;
+  ctx.fill();
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTROL INTERACTIONS
+// ══════════════════════════════════════════════════════════
+let btnStates = {};
+
+function sendPin(wid, value) {
+  const w = getWidget(wid);
+  if (!w) return;
+  wsSend({ type: 'vw', deviceId: selectedDeviceId, pin: w.pin, value });
+}
+
+function toggleBtn(wid) {
+  const w = getWidget(wid);
+  if (!w) return;
+  const d = devices[selectedDeviceId];
+  const cur = d?.pins[w.pin] || '0';
+  const next = parseFloat(cur) !== 0 ? '0' : '1';
+  wsSend({ type: 'vw', deviceId: selectedDeviceId, pin: w.pin, value: next });
+}
+
+function onSlider(wid, el, min, max) {
+  const v = parseFloat(el.value);
+  document.getElementById(`slval_${wid}`).textContent = v;
+  updateSliderBg(el, min, max, getWidget(wid)?.color || 'var(--accent)');
+  wsSend({ type: 'vw', deviceId: selectedDeviceId, pin: getWidget(wid)?.pin, value: String(v) });
+}
+
+function updateSliderBg(el, min, max, color) {
+  const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+  el.style.background = `linear-gradient(to right, ${color} ${pct}%, var(--border) ${pct}%)`;
+}
+
+function getWidget(wid) {
+  return (widgetLayout[selectedDeviceId] || []).find(w => w.id === wid);
+}
+
+// ══════════════════════════════════════════════════════════
+//  MODAL HELPERS
+// ══════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+);
+
+// ══════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function timeAgo(iso) {
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60)   return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+connect();
+
+// Refresh chart widths on resize
+window.addEventListener('resize', () => {
+  if (!selectedDeviceId) return;
+  (widgetLayout[selectedDeviceId] || [])
+    .filter(w => w.type === 'chart')
+    .forEach(w => drawChart(w.id, w));
+});
+</script>
+</body>
+</html>
