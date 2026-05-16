@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zyvon — IoT Platform</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --bg2: #111318;
+    --bg3: #181c24;
+    --bg4: #1e2330;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --text2: #8b90a0;
+    --text3: #555b6e;
+    --accent: #4f9eff;
+    --accent2: #2563eb;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --purple: #a78bfa;
+    --cyan: #22d3ee;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --sidebar-w: 220px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); }
+
+  /* ── Layout ────────────────────────────────────────────────────── */
+  #app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ───────────────────────────────────────────────────── */
+  #sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    background: var(--bg2); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 0 0 16px;
+    overflow-y: auto;
+  }
+
+  .logo {
+    padding: 20px 18px 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .logo-mark {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -1px;
+  }
+  .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-version { font-size: 10px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+
+  .nav-section { padding: 4px 10px 2px; font-size: 10px; font-weight: 600; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 8px; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 9px; padding: 8px 12px;
+    margin: 1px 8px; border-radius: 8px; cursor: pointer; font-size: 14px;
+    color: var(--text2); transition: all 0.15s; text-decoration: none;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: rgba(79,158,255,0.12); color: var(--accent); }
+  .nav-item .icon { font-size: 16px; opacity: 0.8; }
+
+  .sidebar-footer { margin-top: auto; padding: 12px 12px 0; border-top: 1px solid var(--border); }
+
+  /* ── Main ──────────────────────────────────────────────────────── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  #topbar {
+    display: flex; align-items: center; gap: 12px; padding: 0 24px;
+    height: 56px; border-bottom: 1px solid var(--border); background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; flex: 1; }
+  .conn-badge {
+    display: flex; align-items: center; gap: 6px; padding: 5px 12px;
+    border-radius: 20px; font-size: 12px; font-weight: 500;
+    background: var(--bg3); border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+  .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+  .conn-badge.connected .conn-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .conn-badge.connected { border-color: rgba(34,197,94,0.25); }
+  .btn {
+    display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border2); background: var(--bg3); color: var(--text);
+    transition: all 0.15s; font-family: var(--font);
+  }
+  .btn:hover { background: var(--bg4); border-color: var(--border2); }
+  .btn-primary { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+
+  #content { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* ── Views ─────────────────────────────────────────────────────── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Cards ─────────────────────────────────────────────────────── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── Grid ──────────────────────────────────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-6 { margin-bottom: 24px; }
+
+  /* ── Stat Cards ─────────────────────────────────────────────────── */
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .stat-label { font-size: 12px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+  .stat-sub { font-size: 12px; color: var(--text3); }
+  .stat-card .trend { font-size: 12px; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+  .trend-up { background: rgba(34,197,94,0.12); color: var(--green); }
+  .trend-down { background: rgba(239,68,68,0.12); color: var(--red); }
+
+  /* ── Widget Cards ───────────────────────────────────────────────── */
+  .widget {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px; position: relative;
+    overflow: hidden; transition: border-color 0.2s;
+  }
+  .widget:hover { border-color: var(--border2); }
+  .widget-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .widget-value { font-size: 36px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
+  .widget-unit { font-size: 16px; color: var(--text2); font-weight: 400; }
+  .widget-pin { position: absolute; top: 14px; right: 14px; font-size: 10px; font-family: var(--mono); color: var(--text3); background: var(--bg3); padding: 2px 6px; border-radius: 4px; }
+  .widget-gauge { width: 100%; height: 6px; background: var(--bg3); border-radius: 3px; margin-top: 12px; overflow: hidden; }
+  .widget-gauge-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--purple)); transition: width 0.5s ease; }
+
+  /* Toggle widget */
+  .toggle-wrap { display: flex; align-items: center; justify-content: space-between; }
+  .toggle { position: relative; width: 48px; height: 26px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider-bg {
+    position: absolute; inset: 0; background: var(--bg4); border-radius: 13px;
+    cursor: pointer; transition: 0.2s; border: 1px solid var(--border2);
+  }
+  .slider-bg::before {
+    content: ''; position: absolute; width: 20px; height: 20px;
+    border-radius: 50%; left: 3px; top: 2px; background: var(--text2);
+    transition: 0.2s;
+  }
+  .toggle input:checked + .slider-bg { background: var(--accent2); border-color: var(--accent); }
+  .toggle input:checked + .slider-bg::before { transform: translateX(22px); background: #fff; }
+
+  /* Gauge */
+  .gauge-arc { fill: none; stroke-linecap: round; }
+
+  /* Chart canvas */
+  .chart-wrap { position: relative; height: 140px; }
+  canvas { display: block; }
+
+  /* ── Device List ────────────────────────────────────────────────── */
+  .device-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-radius: 10px; cursor: pointer; transition: background 0.15s;
+    border: 1px solid transparent;
+  }
+  .device-row:hover { background: var(--bg3); border-color: var(--border); }
+  .device-row.selected { background: rgba(79,158,255,0.08); border-color: rgba(79,158,255,0.3); }
+  .device-icon {
+    width: 38px; height: 38px; border-radius: 10px; background: var(--bg3);
+    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .device-name { font-size: 14px; font-weight: 600; }
+  .device-meta { font-size: 12px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+  .device-status { margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 12px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-online { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .status-offline { background: var(--text3); }
+
+  /* ── Terminal ───────────────────────────────────────────────────── */
+  #terminal {
+    background: #080a0e; border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 16px;
+    font-family: var(--mono); font-size: 12px; height: 260px;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 3px;
+  }
+  .log-line { display: flex; gap: 12px; align-items: baseline; }
+  .log-ts { color: var(--text3); flex-shrink: 0; }
+  .log-dir { flex-shrink: 0; font-weight: 600; }
+  .log-dir.in { color: var(--cyan); }
+  .log-dir.out { color: var(--purple); }
+  .log-dir.sys { color: var(--amber); }
+  .log-pin { color: var(--accent); }
+  .log-val { color: var(--text); }
+
+  /* ── Terminal input ─────────────────────────────────────────────── */
+  .terminal-input-row { display: flex; gap: 8px; margin-top: 10px; }
+  .mono-input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 8px 12px; font-family: var(--mono);
+    font-size: 12px; color: var(--text); outline: none;
+  }
+  .mono-input:focus { border-color: var(--accent); }
+
+  /* ── Setup Wizard ───────────────────────────────────────────────── */
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--accent2);
+    color: #fff; font-size: 13px; font-weight: 700; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step-row { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .step-row:last-child { border-bottom: none; }
+  .step-content h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .step-content p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  code {
+    font-family: var(--mono); font-size: 12px; background: var(--bg3);
+    padding: 2px 6px; border-radius: 4px; color: var(--cyan);
+  }
+  pre {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; font-family: var(--mono); font-size: 12px; color: var(--text);
+    overflow-x: auto; margin-top: 10px; line-height: 1.8;
+  }
+  pre .c { color: var(--text3); }
+  pre .k { color: var(--purple); }
+  pre .s { color: var(--green); }
+  pre .n { color: var(--accent); }
+  pre .v { color: var(--amber); }
+
+  /* ── Connection panel ───────────────────────────────────────────── */
+  .form-row { margin-bottom: 14px; }
+  .form-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 500; display: block; }
+  .form-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 10px 12px; font-size: 14px;
+    color: var(--text); outline: none; font-family: var(--font);
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* ── Overlay / Modal ────────────────────────────────────────────── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 20px; padding: 28px; width: 460px; max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+
+  /* ── Pulse animation ────────────────────────────────────────────── */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+
+  /* ── Sparkline canvas ───────────────────────────────────────────── */
+  .sparkline { display: block; }
+
+  /* ── Scrollbar ──────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ── Sidebar ── -->
+  <nav id="sidebar">
+    <div class="logo">
+      <div class="logo-mark">Z</div>
+      <div>
+        <div class="logo-text">Zyvon</div>
+        <div class="logo-version">v1.0.0 free</div>
+      </div>
+    </div>
+
+    <div class="nav-section">Platform</div>
+    <a class="nav-item active" onclick="showView('dashboard')">
+      <span class="icon">⬛</span> Dashboard
+    </a>
+    <a class="nav-item" onclick="showView('devices')">
+      <span class="icon">📡</span> Devices
+    </a>
+    <a class="nav-item" onclick="showView('terminal')">
+      <span class="icon">⌨️</span> Terminal
+    </a>
+
+    <div class="nav-section">Configure</div>
+    <a class="nav-item" onclick="showView('setup')">
+      <span class="icon">🔧</span> Quick Setup
+    </a>
+    <a class="nav-item" onclick="showView('connection')">
+      <span class="icon">🔗</span> Connection
+    </a>
+
+    <div class="nav-section">Docs</div>
+    <a class="nav-item" onclick="showView('docs')">
+      <span class="icon">📄</span> API Reference
+    </a>
+
+    <div class="sidebar-footer">
+      <div class="device-row" style="padding: 8px; margin: 0; border-radius: 8px; background: var(--bg3);">
+        <div style="font-size: 11px; color: var(--text3);">FREE TIER</div>
+        <div style="font-size: 12px; color: var(--text2); margin-top: 2px;">HiveMQ · Supabase</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <div id="main">
+    <div id="topbar">
+      <div class="topbar-title" id="view-title">Dashboard</div>
+      <div class="conn-badge" id="conn-badge">
+        <div class="conn-dot"></div>
+        <span id="conn-text">Disconnected</span>
+      </div>
+      <button class="btn btn-primary" onclick="openConnectModal()">⚡ Connect Device</button>
+    </div>
+
+    <div id="content">
+
+      <!-- ── DASHBOARD VIEW ── -->
+      <div class="view active" id="view-dashboard">
+        <div class="grid-4 mb-6">
+          <div class="stat-card">
+            <div class="stat-label">Devices Online</div>
+            <div class="stat-value" style="color: var(--green)" id="stat-online">0</div>
+            <div class="stat-sub">of <span id="stat-total">0</span> registered</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Messages Today</div>
+            <div class="stat-value" id="stat-msgs">0</div>
+            <div class="stat-sub">MQTT publishes</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Data Points</div>
+            <div class="stat-value" id="stat-dp">0</div>
+            <div class="stat-sub">stored this session</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Broker</div>
+            <div class="stat-value" style="font-size:18px; letter-spacing: 0;" id="stat-broker">—</div>
+            <div class="stat-sub">HiveMQ Cloud (free)</div>
+          </div>
+        </div>
+
+        <div class="grid-2 mb-6">
+          <!-- Widget area -->
+          <div>
+            <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px; font-weight: 600;">LIVE WIDGETS</div>
+            <div class="grid-2" id="widget-grid">
+              <!-- Widgets injected by JS -->
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Live Data Stream</div>
+              <select id="chart-pin-sel" style="background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px;">
+                <option value="">— select pin —</option>
+              </select>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="live-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal preview -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Live Feed</div>
+            <button class="btn" onclick="showView('terminal')" style="font-size: 12px; padding: 4px 10px;">Open Terminal →</button>
+          </div>
+          <div id="terminal-preview" style="background: #080a0e; border-radius: 8px; padding: 12px; font-family: var(--mono); font-size: 12px; height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;"></div>
+        </div>
+      </div>
+
+      <!-- ── DEVICES VIEW ── -->
+      <div class="view" id="view-devices">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Registered Devices</div>
+              <button class="btn btn-primary" style="font-size: 12px; padding: 5px 12px;" onclick="addDevice()">+ Add Device</button>
+            </div>
+            <div id="device-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+          </div>
+          <div class="card" id="device-detail">
+            <div class="card-title" style="margin-bottom: 16px;">Device Details</div>
+            <div id="device-detail-content" style="color: var(--text3); font-size: 13px;">Select a device to view details</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TERMINAL VIEW ── -->
+      <div class="view" id="view-terminal">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">MQTT Terminal</div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn" onclick="clearTerminal()" style="font-size: 12px; padding: 4px 10px;">Clear</button>
+            </div>
+          </div>
+          <div id="terminal"></div>
+          <div class="terminal-input-row">
+            <span style="font-family: var(--mono); font-size: 12px; color: var(--text3); align-self: center;">Pin:</span>
+            <input class="mono-input" id="cmd-pin" placeholder="V1" style="width: 80px; flex: none;">
+            <input class="mono-input" id="cmd-val" placeholder="value to send">
+            <button class="btn btn-primary" onclick="sendFromTerminal()" style="flex-shrink: 0;">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SETUP VIEW ── -->
+      <div class="view" id="view-setup">
+        <div class="card mb-4">
+          <div class="card-title" style="margin-bottom: 20px;">⚡ Quick Setup Guide — 100% Free</div>
+
+          <div class="step-row">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h3>Create a free HiveMQ Cloud broker</h3>
+              <p>Go to <a href="https://console.hivemq.cloud" target="_blank" style="color: var(--accent);">console.hivemq.cloud</a> → Sign up free → Create a cluster → Note your <strong>broker URL</strong>, <strong>username</strong>, and <strong>password</strong>. The free tier supports 100 connections and unlimited messages.</p>
+            </div>
+          </div>
+
+          <div class="step-row">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h3>Create a free Supabase project (optional — for history)</h3>
+              <p>Go to <a href="https://supabase.com" target="_blank" style="color: var(--accent);">supabase.com</a> → New project → Copy your <strong>URL</strong> and <strong>anon key</strong>. Run this SQL to create the data table:</p>
+              <pre>
+<span class="k">CREATE TABLE</span> <span class="n">zyvon_data</span> (
+  id        <span class="k">BIGSERIAL PRIMARY KEY</span>,
+  device_id <span class="v">TEXT NOT NULL</span>,
+  pin       <span class="v">TEXT NOT NULL</span>,
+  value     <span class="v">JSONB</span>,
+  ts        <span class="v">TIMESTAMPTZ DEFAULT NOW()</span>
+);
+<span class="k">CREATE INDEX</span> <span class="k">ON</span> <span class="n">zyvon_data</span> (device_id, pin, ts <span class="k">DESC</span>);
+<span class="c">-- Enable Row Level Security (optional but recommended)</span>
+<span class="k">ALTER TABLE</span> <span class="n">zyvon_data</span> <span class="k">ENABLE ROW LEVEL SECURITY</span>;</pre>
+            </div>
+          </div>
+
+          <div class="step-row">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h3>Connect this dashboard</h3>
+              <p>Click <strong>Connection</strong> in the sidebar and enter your HiveMQ credentials. Your device token acts as both the MQTT username/password and device identifier.</p>
+            </div>
+          </div>
+
+          <div class="step-row">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <h3>Flash your ESP32 / Raspberry Pi Pico W (MicroPython)</h3>
+              <p>Copy <code>zyvon.py</code> to your device, then:</p>
+              <pre>
+<span class="k">from</span> <span class="n">zyvon</span> <span class="k">import</span> <span class="n">Zyvon</span>
+<span class="k">import</span> <span class="n">machine</span>, <span class="n">time</span>
+
+<span class="n">z</span> = <span class="n">Zyvon</span>(
+    token=<span class="s">"YOUR_DEVICE_TOKEN"</span>,
+    broker=<span class="s">"YOUR.s1.eu.hivemq.cloud"</span>,
+    debug=<span class="k">True</span>
+)
+
+<span class="c"># Send temperature every second</span>
+<span class="k">while True</span>:
+    temp = <span class="n">machine</span>.ADC(<span class="v">4</span>).read_u16() / <span class="v">1000</span>
+    <span class="n">z</span>.virtual_write(<span class="s">"V1"</span>, temp)
+    <span class="n">z</span>.loop()
+    <span class="n">time</span>.sleep(<span class="v">1</span>)</pre>
+            </div>
+          </div>
+
+          <div class="step-row">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <h3>Use in a browser / Node.js app (JavaScript)</h3>
+              <pre>
+<span class="c">// Include zyvon.js, then:</span>
+<span class="k">const</span> <span class="n">device</span> = <span class="n">Zyvon</span>.begin(<span class="s">"YOUR_DEVICE_TOKEN"</span>, <span class="s">"YOUR.hivemq.cloud"</span>, {
+    debug: <span class="k">true</span>
+});
+
+<span class="n">device</span>.on(<span class="s">"connect"</span>, () => {
+    <span class="c">// Stream a sensor value every 2s</span>
+    <span class="n">device</span>.stream(<span class="s">"V1"</span>, () => (<span class="n">Math</span>.random() * <span class="v">100</span>).toFixed(<span class="v">2</span>), <span class="v">2000</span>);
+});
+
+<span class="c">// React to dashboard controls</span>
+<span class="n">device</span>.on(<span class="s">"V2"</span>, (val) => {
+    <span class="n">console</span>.log(<span class="s">"LED set to:"</span>, val);
+});</pre>
+            </div>
+          </div>
+
+          <div class="step-row">
+            <div class="step-num">6</div>
+            <div class="step-content">
+              <h3>Host Zyvon for free</h3>
+              <p>Deploy this dashboard to <a href="https://pages.github.com" target="_blank" style="color: var(--accent);">GitHub Pages</a> (push HTML to a repo → Settings → Pages) or <a href="https://vercel.com" target="_blank" style="color: var(--accent);">Vercel</a> (import repo → deploy) — both are completely free. No server needed, all communication goes directly browser ↔ HiveMQ via WebSockets.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CONNECTION VIEW ── -->
+      <div class="view" id="view-connection">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title" style="margin-bottom: 20px;">MQTT Broker (HiveMQ Cloud)</div>
+            <div class="form-row">
+              <label class="form-label">Broker Host</label>
+              <input class="form-input" id="cfg-broker" placeholder="abc123.s1.eu.hivemq.cloud">
+              <div class="form-hint">From HiveMQ Cloud console — no wss:// prefix</div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Port</label>
+              <input class="form-input" id="cfg-port" value="8884" type="number">
+              <div class="form-hint">8884 for WebSocket TLS</div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Username</label>
+              <input class="form-input" id="cfg-user" placeholder="MQTT username">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Password</label>
+              <input class="form-input" id="cfg-pass" type="password" placeholder="MQTT password">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Device Token / ID</label>
+              <input class="form-input" id="cfg-token" placeholder="my-esp32-01">
+            </div>
+            <button class="btn btn-primary" onclick="saveAndConnect()" style="width: 100%; justify-content: center;">Connect</button>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom: 20px;">Supabase (optional history)</div>
+            <div class="form-row">
+              <label class="form-label">Project URL</label>
+              <input class="form-input" id="cfg-sb-url" placeholder="https://xxxx.supabase.co">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Anon Key</label>
+              <input class="form-input" id="cfg-sb-key" placeholder="eyJhbGciOiJIUzI1NiIs...">
+            </div>
+            <button class="btn" onclick="saveSupabase()" style="width: 100%; justify-content: center; margin-top: 4px;">Save Supabase Config</button>
+            <div style="margin-top: 16px; padding: 12px; background: var(--bg3); border-radius: 8px; font-size: 12px; color: var(--text2); line-height: 1.7;">
+              Supabase is optional. Without it, data is only kept in memory during this session. With it, all pin values are stored in your free Postgres database and you can query history.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DOCS VIEW ── -->
+      <div class="view" id="view-docs">
+        <div class="card">
+          <div class="card-title" style="margin-bottom: 20px;">API Reference</div>
+
+          <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div>
+              <h3 style="font-size: 14px; color: var(--accent); font-family: var(--mono); margin-bottom: 8px;">JavaScript — Browser / Node.js</h3>
+              <pre>
+<span class="c">// Initialise</span>
+<span class="k">const</span> z = <span class="k">new</span> <span class="n">Zyvon</span>({ token, broker, debug: <span class="k">true</span> });
+<span class="c">// or shorthand:</span>
+<span class="k">const</span> z = <span class="n">Zyvon</span>.begin(token, broker);
+
+<span class="c">// Send value to dashboard</span>
+z.virtualWrite(<span class="s">"V1"</span>, <span class="v">42</span>);
+z.virtualWrite(<span class="s">"V2"</span>, <span class="s">"hello"</span>);
+z.virtualWrite(<span class="s">"V3"</span>, { temp: <span class="v">23.5</span>, hum: <span class="v">61</span> });
+
+<span class="c">// Receive from dashboard</span>
+z.on(<span class="s">"V4"</span>, (val) => { <span class="c">/* LED state etc */</span> });
+z.onVirtualWrite(<span class="s">"V5"</span>, (val) => { });
+
+<span class="c">// Auto-stream a sensor at interval</span>
+z.stream(<span class="s">"V1"</span>, () => readSensor(), <span class="v">1000</span>);  <span class="c">// every 1s</span>
+z.stopStream(<span class="s">"V1"</span>);
+
+<span class="c">// Events</span>
+z.on(<span class="s">"connect"</span>, () => { });
+z.on(<span class="s">"disconnect"</span>, () => { });
+z.on(<span class="s">"data"</span>, (pin, val) => { });  <span class="c">// all pins</span>
+z.on(<span class="s">"error"</span>, (err) => { });
+
+<span class="c">// Logging & metadata</span>
+z.logEvent(<span class="s">"Booted"</span>, <span class="s">"info"</span>);
+z.setProperty({ firmware: <span class="s">"1.0"</span>, uptime: <span class="v">3600</span> });
+z.disconnect();</pre>
+            </div>
+
+            <div>
+              <h3 style="font-size: 14px; color: var(--accent); font-family: var(--mono); margin-bottom: 8px;">MicroPython — ESP32 / Pico W</h3>
+              <pre>
+<span class="k">from</span> <span class="n">zyvon</span> <span class="k">import</span> <span class="n">Zyvon</span>
+
+z = <span class="n">Zyvon</span>(token=<span class="s">"TOKEN"</span>, broker=<span class="s">"host.hivemq.cloud"</span>, debug=<span class="k">True</span>)
+
+z.virtual_write(<span class="s">"V1"</span>, <span class="v">3.14</span>)          <span class="c"># send</span>
+z.on_virtual_write(<span class="s">"V2"</span>, <span class="k">lambda</span> v: <span class="n">print</span>(v))  <span class="c"># receive</span>
+z.log_event(<span class="s">"Booted"</span>)
+z.set_property({ <span class="s">"fw"</span>: <span class="s">"1.0"</span> })
+
+<span class="c"># In your main loop:</span>
+z.loop()          <span class="c"># non-blocking poll</span>
+<span class="c"># OR blocking:</span>
+z.run(<span class="v">100</span>)         <span class="c"># polls every 100ms</span></pre>
+            </div>
+
+            <div>
+              <h3 style="font-size: 14px; color: var(--accent); font-family: var(--mono); margin-bottom: 8px;">MQTT Topic Schema</h3>
+              <pre>
+<span class="c"># Device → Dashboard (uplink)</span>
+zyvon/{device_id}/V1          <span class="c">← sensor data</span>
+zyvon/{device_id}/_log        <span class="c">← log events</span>
+zyvon/{device_id}/_props      <span class="c">← device metadata</span>
+zyvon/{device_id}/status      <span class="c">← online/offline LWT</span>
+
+<span class="c"># Dashboard → Device (downlink)</span>
+zyvon/{device_id}/V2/set      <span class="c">← write to pin</span>
+zyvon/{device_id}/cmd         <span class="c">← commands</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ── Connect Modal ── -->
+<div class="overlay" id="connect-modal" style="display: none;">
+  <div class="modal">
+    <div class="modal-title">⚡ Quick Connect</div>
+    <div class="modal-sub">Enter your HiveMQ Cloud credentials to connect a device</div>
+    <div class="form-row">
+      <label class="form-label">Broker Host</label>
+      <input class="form-input" id="m-broker" placeholder="abc.s1.eu.hivemq.cloud">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Username</label>
+      <input class="form-input" id="m-user" placeholder="hivemq-username">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Password</label>
+      <input class="form-input" id="m-pass" type="password" placeholder="••••••••">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Device Token / ID</label>
+      <input class="form-input" id="m-token" placeholder="my-device-01">
+    </div>
+    <div style="display: flex; gap: 10px; margin-top: 8px;">
+      <button class="btn btn-primary" onclick="connectFromModal()" style="flex: 1; justify-content: center;">Connect</button>
+      <button class="btn" onclick="closeModal()" style="justify-content: center;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  client: null,
+  connected: false,
+  config: JSON.parse(localStorage.getItem('zyvon-config') || '{}'),
+  sbConfig: JSON.parse(localStorage.getItem('zyvon-sb') || '{}'),
+  devices: JSON.parse(localStorage.getItem('zyvon-devices') || '[]'),
+  pinData: {},        // pin → [values]
+  msgCount: 0,
+  dpCount: 0,
+  widgets: {},        // pin → widget state
+  chartPin: null,
+  chartData: [],
+  supabase: null,
+};
+
+// ── Chart (pure canvas, no library) ────────────────────────────────────────
+const ChartCtx = document.getElementById('live-chart');
+let chartAnimId;
+
+function drawChart() {
+  const canvas = ChartCtx;
+  const parent = canvas.parentElement;
+  canvas.width = parent.offsetWidth;
+  canvas.height = parent.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  const data = state.chartData;
+  if (!data.length) {
+    ctx.fillStyle = '#555b6e';
+    ctx.font = '13px Space Grotesk';
+    ctx.textAlign = 'center';
+    ctx.fillText('Select a pin above to see live data', canvas.width/2, canvas.height/2);
+    return;
+  }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const pad = { t: 10, r: 10, b: 24, l: 40 };
+  const w = canvas.width - pad.l - pad.r;
+  const h = canvas.height - pad.t - pad.b;
+  const vals = data.map(d => parseFloat(d.v)).filter(v => !isNaN(v));
+  if (!vals.length) return;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1;
+  const xScale = i => pad.l + (i / (data.length - 1 || 1)) * w;
+  const yScale = v => pad.t + (1 - (v - min) / range) * h;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (i/4) * h;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + w, y); ctx.stroke();
+  }
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + h);
+  grad.addColorStop(0, 'rgba(79,158,255,0.3)');
+  grad.addColorStop(1, 'rgba(79,158,255,0)');
+  ctx.beginPath();
+  data.forEach((d,i) => {
+    const v = parseFloat(d.v);
+    if (isNaN(v)) return;
+    i === 0 ? ctx.moveTo(xScale(i), yScale(v)) : ctx.lineTo(xScale(i), yScale(v));
+  });
+  ctx.lineTo(xScale(data.length-1), pad.t+h);
+  ctx.lineTo(pad.l, pad.t+h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#4f9eff';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  data.forEach((d,i) => {
+    const v = parseFloat(d.v);
+    if (isNaN(v)) return;
+    i === 0 ? ctx.moveTo(xScale(i), yScale(v)) : ctx.lineTo(xScale(i), yScale(v));
+  });
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#555b6e';
+  ctx.font = '11px JetBrains Mono';
+  ctx.textAlign = 'right';
+  [min, (min+max)/2, max].forEach((v,i) => {
+    const y = yScale(v);
+    ctx.fillText(parseFloat(v).toFixed(1), pad.l - 4, y + 4);
+  });
+}
+
+function chartLoop() { drawChart(); chartAnimId = requestAnimationFrame(chartLoop); }
+chartLoop();
+
+// ── Views ──────────────────────────────────────────────────────────────────
+const VIEW_TITLES = {
+  dashboard: 'Dashboard', devices: 'Devices', terminal: 'Terminal',
+  setup: 'Quick Setup', connection: 'Connection Settings', docs: 'API Reference'
+};
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') === `showView('${id}')`) n.classList.add('active');
+  });
+  document.getElementById('view-title').textContent = VIEW_TITLES[id] || id;
+  if (id === 'connection') restoreConnectionForm();
+}
+
+// ── MQTT Connection ────────────────────────────────────────────────────────
+function buildBrokerUrl(cfg) {
+  return `wss://${cfg.broker}:${cfg.port || 8884}/mqtt`;
+}
+
+function connectMQTT(cfg) {
+  if (state.client) { try { state.client.end(true); } catch(e){} }
+  const url = buildBrokerUrl(cfg);
+  const clientId = `zyvon_dash_${Math.random().toString(16).slice(2,10)}`;
+  state.client = mqtt.connect(url, {
+    clientId,
+    username: cfg.username,
+    password: cfg.password,
+    keepalive: 60,
+    reconnectPeriod: 5000,
+  });
+
+  state.client.on('connect', () => {
+    state.connected = true;
+    updateConnBadge(true);
+    termLog('sys', 'SYS', `Connected to ${cfg.broker}`);
+    state.client.subscribe(`zyvon/${cfg.token}/+`, { qos: 1 });
+    state.client.subscribe(`zyvon/${cfg.token}/+/set`, { qos: 1 });
+    document.getElementById('stat-broker').textContent = cfg.broker.split('.')[0] + '...';
+    updateStats();
+  });
+
+  state.client.on('message', (topic, payload) => {
+    const raw = payload.toString();
+    const parts = topic.split('/');
+    const pin = parts[2] || '?';
+    let value;
+    try { value = JSON.parse(raw); } catch { value = raw; }
+    handlePinData(pin, value, raw);
+  });
+
+  state.client.on('close', () => {
+    state.connected = false;
+    updateConnBadge(false);
+    termLog('sys', 'SYS', 'Disconnected');
+  });
+
+  state.client.on('error', err => termLog('sys', 'ERR', err.message));
+}
+
+function handlePinData(pin, value, raw) {
+  state.msgCount++;
+  if (pin === '_log') {
+    const msg = typeof value === 'object' ? value.message : value;
+    const lvl = typeof value === 'object' ? value.level : 'info';
+    termLog('in', `DEV`, msg);
+    return;
+  }
+  if (pin === 'status') {
+    const online = typeof value === 'object' ? value.online : (value === 'true');
+    updateDeviceStatus(state.config.token, online);
+    return;
+  }
+  termLog('in', pin, raw.length > 60 ? raw.slice(0, 60) + '…' : raw);
+  const numVal = typeof value === 'object' ? JSON.stringify(value) : value;
+  if (!state.pinData[pin]) state.pinData[pin] = [];
+  state.pinData[pin].push({ v: numVal, ts: Date.now() });
+  if (state.pinData[pin].length > 300) state.pinData[pin].shift();
+  state.dpCount++;
+  updateWidget(pin, numVal);
+  if (pin === state.chartPin) {
+    state.chartData.push({ v: numVal });
+    if (state.chartData.length > 80) state.chartData.shift();
+  }
+  updateStats();
+  addChartPinOption(pin);
+  if (state.supabase) storeToSupabase(pin, value);
+}
+
+function sendPin(pin, value) {
+  if (!state.client || !state.connected) { alert('Not connected!'); return; }
+  const topic = `zyvon/${state.config.token}/${pin}/set`;
+  state.client.publish(topic, String(value), { qos: 1 });
+  termLog('out', pin, String(value));
+  state.msgCount++;
+  updateStats();
+}
+
+// ── Widgets ────────────────────────────────────────────────────────────────
+const WIDGET_COLORS = ['#4f9eff','#22c55e','#a78bfa','#22d3ee','#f59e0b','#ef4444'];
+let wColorIdx = 0;
+
+function updateWidget(pin, value) {
+  const grid = document.getElementById('widget-grid');
+  let el = document.getElementById(`widget-${pin}`);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'widget';
+    el.id = `widget-${pin}`;
+    const color = WIDGET_COLORS[wColorIdx++ % WIDGET_COLORS.length];
+    const num = parseFloat(value);
+    const isToggle = value === '0' || value === '1' || value === 'true' || value === 'false';
+    el.innerHTML = `
+      <div class="widget-pin">${pin}</div>
+      <div class="widget-label" style="color:${color}">${pin}</div>
+      ${isToggle ? `
+        <div class="toggle-wrap">
+          <span class="widget-value" id="wv-${pin}" style="font-size:20px; color:${color}">${value}</span>
+          <label class="toggle">
+            <input type="checkbox" ${(value==='1'||value==='true')?'checked':''} onchange="sendPin('${pin}', this.checked?'1':'0')">
+            <div class="slider-bg"></div>
+          </label>
+        </div>
+      ` : `
+        <div class="widget-value" id="wv-${pin}" style="color:${color}">
+          ${isNaN(num) ? value : num.toFixed(1)}<span class="widget-unit"></span>
+        </div>
+        <div class="widget-gauge">
+          <div class="widget-gauge-fill" id="wg-${pin}" style="width:50%; background: linear-gradient(90deg,${color},${color}88)"></div>
+        </div>
+      `}`;
+    grid.appendChild(el);
+  } else {
+    const valEl = document.getElementById(`wv-${pin}`);
+    if (valEl) {
+      const num = parseFloat(value);
+      valEl.childNodes[0].textContent = isNaN(num) ? value : num.toFixed(1);
+    }
+    const gauge = document.getElementById(`wg-${pin}`);
+    if (gauge) {
+      const pct = Math.min(100, Math.max(0, ((parseFloat(value) || 0) / 100) * 100));
+      gauge.style.width = pct + '%';
+    }
+  }
+}
+
+// ── Terminal ───────────────────────────────────────────────────────────────
+function termLog(dir, pin, val) {
+  const ts = new Date().toLocaleTimeString('en', { hour12: false });
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `
+    <span class="log-ts">${ts}</span>
+    <span class="log-dir ${dir}">${dir === 'in' ? '←' : dir === 'out' ? '→' : '●'}</span>
+    <span class="log-pin">${pin}</span>
+    <span class="log-val">${val}</span>`;
+
+  const term = document.getElementById('terminal');
+  if (term) { term.appendChild(line); term.scrollTop = term.scrollHeight; }
+
+  const preview = document.getElementById('terminal-preview');
+  if (preview) {
+    preview.appendChild(line.cloneNode(true));
+    preview.scrollTop = preview.scrollHeight;
+    if (preview.children.length > 30) preview.removeChild(preview.firstChild);
+  }
+}
+
+function clearTerminal() {
+  document.getElementById('terminal').innerHTML = '';
+  termLog('sys', 'SYS', 'Terminal cleared');
+}
+
+function sendFromTerminal() {
+  const pin = document.getElementById('cmd-pin').value.trim() || 'V1';
+  const val = document.getElementById('cmd-val').value.trim();
+  if (!val) return;
+  sendPin(pin, val);
+  document.getElementById('cmd-val').value = '';
+}
+
+// ── Device List ────────────────────────────────────────────────────────────
+function renderDevices() {
+  const list = document.getElementById('device-list');
+  list.innerHTML = '';
+  if (!state.devices.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:16px 0">No devices yet. Click Add Device.</div>';
+    return;
+  }
+  state.devices.forEach((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'device-row';
+    row.innerHTML = `
+      <div class="device-icon">📡</div>
+      <div>
+        <div class="device-name">${d.name}</div>
+        <div class="device-meta">${d.id}</div>
+      </div>
+      <div class="device-status">
+        <div class="status-dot ${d.online ? 'status-online' : 'status-offline'}"></div>
+        <span style="color:var(--text3)">${d.online ? 'Online' : 'Offline'}</span>
+      </div>`;
+    row.onclick = () => showDeviceDetail(d, i);
+    list.appendChild(row);
+  });
+}
+
+function addDevice() {
+  const id = prompt('Device Token/ID:');
+  if (!id) return;
+  const name = prompt('Device Name:', id);
+  state.devices.push({ id, name: name || id, online: false, added: Date.now() });
+  localStorage.setItem('zyvon-devices', JSON.stringify(state.devices));
+  renderDevices();
+  document.getElementById('stat-total').textContent = state.devices.length;
+}
+
+function showDeviceDetail(d, i) {
+  document.querySelectorAll('.device-row').forEach((r, ri) => r.classList.toggle('selected', ri === i));
+  const pins = state.pinData;
+  const pinList = Object.keys(pins).map(p => {
+    const last = pins[p].at(-1);
+    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span style="color:var(--accent);font-family:var(--mono)">${p}</span>
+      <span>${last ? last.v : '—'}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('device-detail-content').innerHTML = `
+    <div style="margin-bottom:12px"><span style="color:var(--text2)">ID: </span><code>${d.id}</code></div>
+    <div style="margin-bottom:16px"><span style="color:var(--text2)">Added: </span>${new Date(d.added).toLocaleDateString()}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Pin Values</div>
+    ${pinList || '<div style="color:var(--text3)">No data yet</div>'}
+  `;
+}
+
+function updateDeviceStatus(id, online) {
+  const d = state.devices.find(d => d.id === id);
+  if (d) {
+    d.online = online;
+    localStorage.setItem('zyvon-devices', JSON.stringify(state.devices));
+    renderDevices();
+    document.getElementById('stat-online').textContent = state.devices.filter(d => d.online).length;
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-msgs').textContent = state.msgCount;
+  document.getElementById('stat-dp').textContent = state.dpCount;
+  document.getElementById('stat-total').textContent = state.devices.length;
+}
+
+// ── Connection badge ───────────────────────────────────────────────────────
+function updateConnBadge(connected) {
+  const badge = document.getElementById('conn-badge');
+  const text = document.getElementById('conn-text');
+  badge.classList.toggle('connected', connected);
+  text.textContent = connected ? 'Connected' : 'Disconnected';
+}
+
+// ── Chart pin selector ─────────────────────────────────────────────────────
+function addChartPinOption(pin) {
+  const sel = document.getElementById('chart-pin-sel');
+  if (!sel.querySelector(`option[value="${pin}"]`)) {
+    const opt = document.createElement('option');
+    opt.value = pin; opt.textContent = pin;
+    sel.appendChild(opt);
+  }
+}
+document.getElementById('chart-pin-sel').onchange = function() {
+  state.chartPin = this.value;
+  state.chartData = (state.pinData[this.value] || []).map(d => ({ v: d.v }));
+};
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openConnectModal() { document.getElementById('connect-modal').style.display = 'flex'; }
+function closeModal() { document.getElementById('connect-modal').style.display = 'none'; }
+function connectFromModal() {
+  const cfg = {
+    broker: document.getElementById('m-broker').value.trim(),
+    username: document.getElementById('m-user').value.trim(),
+    password: document.getElementById('m-pass').value,
+    token: document.getElementById('m-token').value.trim(),
+    port: 8884,
+  };
+  if (!cfg.broker || !cfg.token) { alert('Broker and Device Token are required.'); return; }
+  state.config = cfg;
+  localStorage.setItem('zyvon-config', JSON.stringify(cfg));
+  connectMQTT(cfg);
+  closeModal();
+}
+
+// ── Connection form ────────────────────────────────────────────────────────
+function restoreConnectionForm() {
+  const c = state.config;
+  document.getElementById('cfg-broker').value = c.broker || '';
+  document.getElementById('cfg-port').value = c.port || 8884;
+  document.getElementById('cfg-user').value = c.username || '';
+  document.getElementById('cfg-pass').value = c.password || '';
+  document.getElementById('cfg-token').value = c.token || '';
+  const sb = state.sbConfig;
+  document.getElementById('cfg-sb-url').value = sb.url || '';
+  document.getElementById('cfg-sb-key').value = sb.key || '';
+}
+
+function saveAndConnect() {
+  const cfg = {
+    broker: document.getElementById('cfg-broker').value.trim(),
+    port: parseInt(document.getElementById('cfg-port').value) || 8884,
+    username: document.getElementById('cfg-user').value.trim(),
+    password: document.getElementById('cfg-pass').value,
+    token: document.getElementById('cfg-token').value.trim(),
+  };
+  if (!cfg.broker || !cfg.token) { alert('Broker and Device Token are required.'); return; }
+  state.config = cfg;
+  localStorage.setItem('zyvon-config', JSON.stringify(cfg));
+  connectMQTT(cfg);
+  showView('dashboard');
+}
+
+function saveSupabase() {
+  const sb = {
+    url: document.getElementById('cfg-sb-url').value.trim(),
+    key: document.getElementById('cfg-sb-key').value.trim(),
+  };
+  state.sbConfig = sb;
+  localStorage.setItem('zyvon-sb', JSON.stringify(sb));
+  if (sb.url && sb.key) initSupabase(sb);
+  alert('Supabase config saved!');
+}
+
+// ── Supabase ───────────────────────────────────────────────────────────────
+function initSupabase(sb) {
+  try {
+    const { createClient } = supabase;
+    state.supabase = createClient(sb.url, sb.key);
+    termLog('sys', 'SB', 'Supabase connected');
+  } catch(e) { termLog('sys', 'ERR', 'Supabase init failed: ' + e.message); }
+}
+
+async function storeToSupabase(pin, value) {
+  if (!state.supabase) return;
+  try {
+    await state.supabase.from('zyvon_data').insert({
+      device_id: state.config.token,
+      pin,
+      value: typeof value === 'object' ? value : { v: value }
+    });
+  } catch(e) { /* silent */ }
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+(function boot() {
+  renderDevices();
+  updateStats();
+  termLog('sys', 'SYS', 'Zyvon v1.0.0 ready. Enter connection details to start.');
+
+  // Auto-connect if config exists
+  if (state.config.broker && state.config.token) {
+    connectMQTT(state.config);
+  }
+  if (state.sbConfig.url && state.sbConfig.key) {
+    initSupabase(state.sbConfig);
+  }
+  // Add demo device
+  if (!state.devices.length) {
+    state.devices.push({ id: 'demo-esp32-01', name: 'Demo ESP32', online: false, added: Date.now() });
+    localStorage.setItem('zyvon-devices', JSON.stringify(state.devices));
+    renderDevices();
+    updateStats();
+  }
+})();
+</script>
+</body>
+</html>
